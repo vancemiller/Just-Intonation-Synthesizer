@@ -6,14 +6,12 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-import synthesizer.Note.Root;
-
 public class KeyboardImpl implements Model {
-	private final PropertyChangeSupport changes;
-	private final Note[] notes;
+	private PropertyChangeSupport changes;
+	private Note[] notes;
 	private boolean isSustaining;
 	private Keyboard.SostenutoState sostenutoState;
-	private final List<Note> sustainedNotes, sostenutoedNotes;
+	private List<Note> sustainedNotes, sostenutoedNotes;
 	private List<Instrument> instruments;
 	private Note.Root r;
 	private Instrument instrument;
@@ -23,24 +21,25 @@ public class KeyboardImpl implements Model {
 	public KeyboardImpl(Instrument instrument, List<Instrument> instruments,
 			Note.Root root, float gain, Keyboard.Mode mode) {
 		// Property changes
-		this.changes = new PropertyChangeSupport(this);
+		changes = new PropertyChangeSupport(this);
 		// initialize the sustained notes list; nothing is sustained now
-		this.sustainedNotes = new ArrayList<Note>();
-		this.isSustaining = false;
+		sustainedNotes = new ArrayList<Note>();
+		isSustaining = false;
 		// same for sostenuto
-		this.sostenutoedNotes = new ArrayList<Note>();
-		this.sostenutoState = Keyboard.SostenutoState.ONE;
+		sostenutoedNotes = new ArrayList<Note>();
+		sostenutoState = Keyboard.SostenutoState.ONE;
 		// build the notes array
 		Note.Pitch[] pitches = Note.Pitch.values();
-		this.notes = new Note[pitches.length];
-		for (int i = 0; i < pitches.length; i++)
+		notes = new Note[pitches.length];
+		for (int i = 0; i < pitches.length; i++) {
 			notes[i] = new NoteImpl(pitches[i]);
+		}
 		// set the instrument
 		this.instrument = instrument;
 		// set the list of instruments
 		this.instruments = instruments.subList(0, instruments.size());
 		// set the root (for just intonation)
-		this.r = root;
+		r = root;
 		// set the gain
 		this.gain = gain;
 		// set the mode
@@ -66,8 +65,8 @@ public class KeyboardImpl implements Model {
 	}
 
 	@Override
-	public void setRoot(Root r) {
-		Root old = this.r;
+	public void setRoot(Note.Root r) {
+		Note.Root old = this.r;
 		this.r = r;
 		updateKeys();
 		changes.firePropertyChange("root", old, r);
@@ -144,8 +143,9 @@ public class KeyboardImpl implements Model {
 	@Override
 	public void setIsSustaining(boolean isSustaining) {
 		if (!isSustaining) {
-			for (Note n : sustainedNotes)
+			for (Note n : sustainedNotes) {
 				stopNote(n.getPitch());
+			}
 			sustainedNotes.removeAll(sustainedNotes);
 		}
 		changes.firePropertyChange("sustain", this.isSustaining, isSustaining);
@@ -160,11 +160,13 @@ public class KeyboardImpl implements Model {
 	@Override
 	public void setSostenutoState(Keyboard.SostenutoState sostenutoState) {
 		if (sostenutoState.equals(Keyboard.SostenutoState.ONE)) {
-			if (!isSustaining)
-				for (Note n : sostenutoedNotes)
+			if (!isSustaining) {
+				for (Note n : sostenutoedNotes) {
 					stopNote(n.getPitch());
-			else
+				}
+			} else {
 				sustainedNotes.addAll(sostenutoedNotes);
+			}
 			sostenutoedNotes.removeAll(sostenutoedNotes);
 		}
 		changes.firePropertyChange("sostenuto", this.sostenutoState,
@@ -234,8 +236,9 @@ public class KeyboardImpl implements Model {
 
 	@Override
 	public void stopAll() {
-		while (!sustainedNotes.isEmpty())
+		while (!sustainedNotes.isEmpty()) {
 			stopNote(sustainedNotes.get(0).getPitch());
+		}
 	}
 
 	/** Property Change support */

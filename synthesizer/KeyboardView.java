@@ -21,6 +21,7 @@ import javax.swing.JLayeredPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JSlider;
+import javax.swing.ScrollPaneConstants;
 import javax.swing.SwingUtilities;
 import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
@@ -32,8 +33,8 @@ public class KeyboardView implements View {
 	private Pedals pedals;
 
 	public KeyboardView() throws FileNotFoundException {
-		this.changes = new PropertyChangeSupport(this);
-		this.f = new JFrame("Keyboard");
+		changes = new PropertyChangeSupport(this);
+		f = new JFrame("Keyboard");
 		f.setLayout(new BorderLayout());
 		sp = new KeyboardScrollPane(changes);
 		f.add(sp, BorderLayout.CENTER);
@@ -66,10 +67,11 @@ public class KeyboardView implements View {
 
 	@Override
 	public void setSustainEnabled(boolean isSustainEnabled) {
-		if (isSustainEnabled)
+		if (isSustainEnabled) {
 			pedals.sustain.setText("release");
-		else
+		} else {
 			pedals.sustain.setText("sustain");
+		}
 		sp.getKeyboardPanel().setSustainEnabled(isSustainEnabled);
 		// property change fires from KeyboardPanel method.
 	}
@@ -121,16 +123,16 @@ class ControlPanel extends JPanel implements ActionListener {
 		add(new JLabel("Choose a mode"));
 		modes = new JComboBox<Keyboard.Mode>(Keyboard.Mode.values());
 		add(modes);
-		this.selectedMode = modes.getItemAt(0);
+		selectedMode = modes.getItemAt(0);
 		changeMode = new JButton("change mode");
 		changeMode.setActionCommand("changeMode");
 		changeMode.addActionListener(this);
 		add(changeMode);
 		// instrument selection
 		add(new JLabel("Choose an instrument"));
-		instruments = new JComboBox<Instrument>(FileReader.getInstruments());
+		instruments = new JComboBox<Instrument>(FileHelper.getInstruments());
 		add(instruments);
-		this.selectedInstrument = instruments.getItemAt(0);
+		selectedInstrument = instruments.getItemAt(0);
 		changeInstrument = new JButton("change instrument");
 		changeInstrument.setActionCommand("changeInstrument");
 		changeInstrument.addActionListener(this);
@@ -139,7 +141,7 @@ class ControlPanel extends JPanel implements ActionListener {
 		add(new JLabel("Choose a root:"));
 		root = new JComboBox<Note.Root>(Note.Root.values());
 		add(root);
-		this.selectedRoot = root.getItemAt(0);
+		selectedRoot = root.getItemAt(0);
 		changeRoot = new JButton("change root");
 		changeRoot.setActionCommand("changeRoot");
 		changeRoot.addActionListener(this);
@@ -167,7 +169,7 @@ class ControlPanel extends JPanel implements ActionListener {
 			break;
 		case "changeRoot":
 			Note.Root oldRoot = selectedRoot;
-			this.selectedRoot = (Note.Root) root.getSelectedItem();
+			selectedRoot = (Note.Root) root.getSelectedItem();
 			changes.firePropertyChange("root", oldRoot, selectedRoot);
 			break;
 		case "stop":
@@ -186,8 +188,9 @@ class KeyboardScrollPane extends JScrollPane {
 	private KeyboardPanel keyboardPanel;
 
 	protected KeyboardScrollPane(PropertyChangeSupport changes) {
-		super(new KeyboardPanel(changes), JScrollPane.VERTICAL_SCROLLBAR_NEVER,
-				JScrollPane.HORIZONTAL_SCROLLBAR_ALWAYS);
+		super(new KeyboardPanel(changes),
+				ScrollPaneConstants.VERTICAL_SCROLLBAR_NEVER,
+				ScrollPaneConstants.HORIZONTAL_SCROLLBAR_ALWAYS);
 		keyboardPanel = (KeyboardPanel) super.getViewport().getView();
 		super.getViewport().setViewPosition(new Point(1000, 0));
 		super.setWheelScrollingEnabled(true);
@@ -214,16 +217,17 @@ class KeyboardPanel extends JLayeredPane {
 
 	protected KeyboardPanel(PropertyChangeSupport changes) {
 		this.changes = changes;
-		this.keys = new Key[Note.Pitch.values().length];
-		this.isSustainEnabled = false;
-		this.sostenutoState = Keyboard.SostenutoState.ONE;
+		keys = new Key[Note.Pitch.values().length];
+		isSustainEnabled = false;
+		sostenutoState = Keyboard.SostenutoState.ONE;
 		int i = 0;
 		for (Note.Pitch p : Note.Pitch.values()) {
 			keys[i] = new Key(p, changes, this);
-			if (p.isAccidental())
+			if (p.isAccidental()) {
 				add(keys[i], 1, -1);
-			else
+			} else {
 				add(keys[i], 0, -1);
+			}
 			i++;
 		}
 	}
@@ -231,9 +235,11 @@ class KeyboardPanel extends JLayeredPane {
 	protected void setSustainEnabled(boolean isSustainEnabled) {
 		boolean old = this.isSustainEnabled;
 		this.isSustainEnabled = isSustainEnabled;
-		if (!isSustainEnabled)
-			for (Key k : keys)
+		if (!isSustainEnabled) {
+			for (Key k : keys) {
 				k.setIsSustaining(false);
+			}
+		}
 		changes.firePropertyChange("isSustainEnabled", old, isSustainEnabled);
 	}
 
@@ -245,11 +251,14 @@ class KeyboardPanel extends JLayeredPane {
 		Keyboard.SostenutoState old = this.sostenutoState;
 		this.sostenutoState = sostenutoState;
 		if (sostenutoState.equals(Keyboard.SostenutoState.ONE)) {
-			if (isSustainEnabled)
-				for (Key k : keys)
+			if (isSustainEnabled) {
+				for (Key k : keys) {
 					k.setIsSustaining(true);
-			for (Key k : keys)
+				}
+			}
+			for (Key k : keys) {
 				k.setIsSostenuto(false);
+			}
 		}
 		changes.firePropertyChange("sostenutoState", old, sostenutoState);
 	}
@@ -345,12 +354,13 @@ class Pedals extends JPanel implements ActionListener, ChangeListener {
 
 	@Override
 	public void stateChanged(ChangeEvent e) {
-		if (e.getSource().equals(gain))
+		if (e.getSource().equals(gain)) {
 			if (!gain.getValueIsAdjusting()) {
 				float oldGain = selectedGain;
-				this.selectedGain = (float) gain.getValue();
+				selectedGain = gain.getValue();
 				changes.firePropertyChange("gain", oldGain, selectedGain);
 			}
+		}
 	}
 }
 
@@ -374,11 +384,11 @@ class Key extends JButton implements MouseListener {
 		this.p = p;
 		this.changes = changes;
 		this.keyboard = keyboard;
-		this.isPressed = false;
-		this.isSostenuto = false;
-		this.isSustaining = false;
+		isPressed = false;
+		isSostenuto = false;
+		isSustaining = false;
 		// button-specific setup
-		this.setBorder(BorderFactory.createRaisedBevelBorder());
+		setBorder(BorderFactory.createRaisedBevelBorder());
 		if (p.isAccidental()) {
 			setBackground(Color.BLACK);
 			setForeground(Color.WHITE);
@@ -389,25 +399,27 @@ class Key extends JButton implements MouseListener {
 			setSize(50, 200);
 			setLocation(p.getLocationOnKeyboard() * 50, 0);
 		}
-		this.setContentAreaFilled(false);
-		this.setOpaque(true);
-		this.setFocusable(false);
+		setContentAreaFilled(false);
+		setOpaque(true);
+		setFocusable(false);
 		addMouseListener(this);
 	}
 
 	public void setIsSustaining(boolean isSustaining) {
 		boolean old = this.isSustaining;
 		this.isSustaining = isSustaining;
-		if (isPressed && !isSustaining && !isSostenuto)
+		if (isPressed && !isSustaining && !isSostenuto) {
 			stop();
+		}
 		changes.firePropertyChange("isSustaining", old, isSustaining);
 	}
 
 	public void setIsSostenuto(boolean isSostenuto) {
 		boolean old = this.isSostenuto;
 		this.isSostenuto = isSostenuto;
-		if (isPressed && !isSustaining && !isSostenuto)
+		if (isPressed && !isSustaining && !isSostenuto) {
 			stop();
+		}
 		changes.firePropertyChange("isSostenuto", old, isSostenuto);
 	}
 

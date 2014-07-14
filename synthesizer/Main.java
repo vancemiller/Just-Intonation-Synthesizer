@@ -23,16 +23,20 @@ public class Main {
 		} finally {
 			KeyboardImpl k;
 			try {
-				k = new KeyboardImpl(FileReader.getInstruments());
+				k = new KeyboardImpl(FileHelper.getInstruments());
 				KeyboardView v = new KeyboardView();
 				new Controller(v, k);
 			} catch (FileNotFoundException e) {
-				JOptionPane.showMessageDialog(null,
-					    "The file " + FileReader.getFileName() + " is missing.\nPlease place the file in the same directory as this program and relaunch.",
-					    "Instrument file missing",
-					    JOptionPane.ERROR_MESSAGE);
+				JOptionPane
+						.showMessageDialog(
+								null,
+								"The file "
+										+ FileHelper.getFileName()
+										+ " is missing.\nPlease place the file in the same directory as this program and relaunch.",
+								"Instrument file missing",
+								JOptionPane.ERROR_MESSAGE);
 			}
-			
+
 		}
 	}
 }

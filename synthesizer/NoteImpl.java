@@ -16,18 +16,19 @@ public class NoteImpl implements Note {
 
 	public NoteImpl(Pitch pitch, Keyboard keyboard) {
 		this.pitch = pitch;
-		this.p = new Player();
+		p = new Player();
 		update(keyboard);
 	}
 
 	public NoteImpl(Pitch pitch) {
 		this.pitch = pitch;
-		this.p = new Player();
+		p = new Player();
 		// requires manual call to update before playing.
 	}
 
 	/** Getters */
 
+	@Override
 	public Pitch getPitch() {
 		return pitch;
 	}
@@ -70,13 +71,14 @@ public class NoteImpl implements Note {
 
 		public Player() {
 			// make a player to play each line synchronously
-			this.players = new ThreadedPlayer[Note.NUM_OVERTONES];
+			players = new ThreadedPlayer[Note.NUM_OVERTONES];
 			// make some threads to execute the threaded players.
-			this.threads = new Thread[Note.NUM_OVERTONES];
+			threads = new Thread[Note.NUM_OVERTONES];
 			// initialize the threaded players.
-			for (int i = 0; i < Note.NUM_OVERTONES; i++)
+			for (int i = 0; i < Note.NUM_OVERTONES; i++) {
 				players[i] = new ThreadedPlayer();
-			this.started = false;
+			}
+			started = false;
 		}
 
 		public void setFrequency(double frequency) {
@@ -111,8 +113,8 @@ public class NoteImpl implements Note {
 
 		public void stop() {
 			if (started) {
-				for (int i = 0; i < players.length; i++) {
-					players[i].stop();
+				for (ThreadedPlayer player : players) {
+					player.stop();
 				}
 				started = false;
 			}
@@ -134,8 +136,8 @@ public class NoteImpl implements Note {
 			private float gain;
 
 			public ThreadedPlayer() {
-				this.isFinished = true;
-				this.gain = 0;
+				isFinished = true;
+				gain = 0;
 			}
 
 			public void setGain(float gain) {
@@ -151,8 +153,9 @@ public class NoteImpl implements Note {
 						DataLine.Info info = new DataLine.Info(
 								SourceDataLine.class, format,
 								SINE_PACKET_SIZE * 2);
-						if (!AudioSystem.isLineSupported(info))
+						if (!AudioSystem.isLineSupported(info)) {
 							throw new LineUnavailableException();
+						}
 						l = (SourceDataLine) AudioSystem.getLine(info);
 						l.open(format);
 						l.start();
@@ -163,34 +166,38 @@ public class NoteImpl implements Note {
 							.getControl(FloatControl.Type.MASTER_GAIN);
 					ByteBuffer buffer = ByteBuffer.allocate(SINE_PACKET_SIZE);
 					double cyclePosition = 0;
-					double cycleFraction = frequency / SAMPLE_RATE;
+					double cycleFraction = 0.0;
 					while (!isFinished) {
+						cycleFraction = frequency / SAMPLE_RATE;
 						control.setValue(gain);
 						buffer.clear();
 						for (int i = 0; i < SINE_PACKET_SIZE / SAMPLE_SIZE; i++) {
 							buffer.putShort((short) (amplitude * Math.sin(2
 									* Math.PI * cyclePosition)));
 							cyclePosition += cycleFraction;
-							if (cyclePosition > 1)
+							if (cyclePosition > 1) {
 								cyclePosition -= 1;
+							}
 						}
 						l.write(buffer.array(), 0, buffer.position());
 						try {
-							while (l.getBufferSize() - l.available() > SINE_PACKET_SIZE)
+							while (l.getBufferSize() - l.available() > SINE_PACKET_SIZE) {
 								Thread.sleep(1);
+							}
 						} catch (InterruptedException e) {
 							isFinished = true;
 							break;
 						}
 					}
-					buffer = ByteBuffer.allocate(SINE_PACKET_SIZE/4 );
+					buffer = ByteBuffer.allocate(SINE_PACKET_SIZE / 4);
 					double dampening = 1.0;
-					for (int i = 0; i <  SINE_PACKET_SIZE / SAMPLE_SIZE/4; i++, dampening *= .99) {
+					for (int i = 0; i < SINE_PACKET_SIZE / SAMPLE_SIZE / 4; i++, dampening *= .99) {
 						buffer.putShort((short) (dampening * amplitude * Math
 								.sin(2 * Math.PI * cyclePosition)));
 						cyclePosition += cycleFraction;
-						if (cyclePosition > 1)
+						if (cyclePosition > 1) {
 							cyclePosition -= 1;
+						}
 					}
 					l.write(buffer.array(), 0, buffer.position());
 					l.drain();

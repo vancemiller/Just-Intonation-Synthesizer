@@ -2,8 +2,6 @@ package synthesizer;
 
 import java.util.List;
 
-import synthesizer.Note.Root;
-
 public interface Keyboard {
 	enum SostenutoState {
 		ONE, TWO, THREE;
@@ -52,7 +50,7 @@ public interface Keyboard {
 
 	float getGain();
 
-	void setRoot(Root r);
+	void setRoot(Note.Root r);
 
 	Note.Root getRoot();
 
