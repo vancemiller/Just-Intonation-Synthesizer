@@ -1,6 +1,28 @@
 package synthesizer;
 
+import java.util.List;
+
+import synthesizer.Note.Root;
+
 public interface Keyboard {
+	enum SostenutoState {
+		ONE, TWO, THREE;
+	}
+
+	enum Mode {
+		SINGLE_NOTE("Single note"), CHORD("Chord");
+
+		Mode(String name) {
+			this.name = name;
+		}
+
+		public final String name;
+
+		@Override
+		public String toString() {
+			return name;
+		}
+	}
 
 	Note getNote(Note.Pitch p);
 
@@ -16,9 +38,34 @@ public interface Keyboard {
 
 	Note[] getNotes();
 
-	void setKey(Note.Key k);
-
 	void stopAll();
 
-	void setInstrument(String instrument);
+	List<Instrument> getInstruments();
+
+	void setInstruments(List<Instrument> instruments);
+
+	Instrument getInstrument();
+
+	void setInstrument(Instrument instrument);
+
+	void setGain(float gain);
+
+	float getGain();
+
+	void setRoot(Root r);
+
+	Note.Root getRoot();
+
+	void setMode(Mode mode);
+
+	Keyboard.Mode getMode();
+
+	void setIsSustaining(boolean isSustaining);
+
+	boolean isSustaining();
+
+	void setSostenutoState(SostenutoState sostenutoState);
+
+	SostenutoState getSostenutoState();
+
 }

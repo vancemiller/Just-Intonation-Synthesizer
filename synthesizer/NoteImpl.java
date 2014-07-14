@@ -1,75 +1,50 @@
 package synthesizer;
 
+import java.nio.ByteBuffer;
+
 import javax.sound.sampled.AudioFormat;
 import javax.sound.sampled.AudioSystem;
+import javax.sound.sampled.DataLine;
+import javax.sound.sampled.FloatControl;
 import javax.sound.sampled.LineUnavailableException;
 import javax.sound.sampled.SourceDataLine;
 
 public class NoteImpl implements Note {
 
 	private Pitch pitch;
-	private int[] amplitudes;
-	private Key key;
 	private Player p;
 
-	public NoteImpl(Pitch pitch) {
-		this(pitch, Note.Key.values()[pitch.ordinal() % 12 + 1]);
+	public NoteImpl(Pitch pitch, Keyboard keyboard) {
+		this.pitch = pitch;
+		this.p = new Player();
+		update(keyboard);
 	}
 
-	public NoteImpl(Pitch pitch, Key key) {
+	public NoteImpl(Pitch pitch) {
 		this.pitch = pitch;
-		this.key = key;
-		p = new Player();
-		// set the amplitudes and overtones
-		setInstrument("Pure Tone");
+		this.p = new Player();
+		// requires manual call to update before playing.
 	}
 
 	/** Getters */
 
-	public Key getKey() {
-		return key;
-	}
-
-	@Override
 	public Pitch getPitch() {
 		return pitch;
 	}
 
 	@Override
 	public String toString() {
-		return getPitch().toString();
+		return pitch.toString();
 	}
 
 	/** Setters */
 
 	@Override
-	public void setKey(Key key) {
-		if (key == Note.Key.EQUAL_TEMPERMENT) {
-			this.key = Note.Key.values()[pitch.ordinal() % 12 + 1];
-		} else {
-			this.key = key;
-		}
-		// re-make the sine waves for the new key;
-		double tuningRatio = 1;
-		if (key != Note.Key.EQUAL_TEMPERMENT) {
-			tuningRatio = Note.Interval.getInterval(key, pitch).ratio;
-		}
-		double freq = getFrequencyOfRoot() * tuningRatio;
-		int[] overtones = new int[Note.NUM_OVERTONES];
-		for (int i = 0; i < Note.NUM_OVERTONES; i++) {
-			overtones[i] = (int) freq * (i + 1);
-		}
-		p.setOvertones(overtones, amplitudes);
-	}
-
-	@Override
-	public void setInstrument(String instrument) {
-		if (amplitudes == null) {
-			amplitudes = new int[Note.NUM_OVERTONES];
-		}
-		FileReader.loadAmplitudes(instrument, amplitudes);
-		// recalculate sine waves
-		setKey(key);
+	public void update(Keyboard keyboard) {
+		p.setGain(keyboard.getGain());
+		p.setFrequency(Note.Pitch.getFrequency(keyboard.getRoot(), pitch));
+		p.setAmplitudes(keyboard.getInstrument().getAmplitudes());
+		// p.recalculate();
 	}
 
 	/** Sound makers */
@@ -88,119 +63,142 @@ public class NoteImpl implements Note {
 		}
 	}
 
-	/** Helpers */
-
-	private double getFrequencyOfRoot() {
-		// return tuning * (2^(n/12))
-		return TUNING * Math.pow(2.0, getHalfStepsFromA() / 12.0);
-	}
-
-	private int getHalfStepsFromA() {
-		return (pitch.ordinal() - Note.Interval.getInterval(key, pitch)
-				.ordinal()) - Note.Pitch.A4.ordinal();
-	}
-
 	private static class Player {
-		public static final int SAMPLE_RATE = 64000; // Hz
-		public static final AudioFormat format = new AudioFormat(SAMPLE_RATE,
-				16, 1, true, true);
 		public boolean started;
-		private byte[][][] sineWaves;
-		private SourceDataLine[] lines;
-		private ThreadedPlayer[] threads;
+		private ThreadedPlayer[] players;
+		private Thread[] threads;
 
 		public Player() {
-			sineWaves = new byte[Note.NUM_OVERTONES][3][SAMPLE_RATE];
-			lines = new SourceDataLine[Note.NUM_OVERTONES];
-			threads = new ThreadedPlayer[Note.NUM_OVERTONES];
-			for (int i = 0; i < Note.NUM_OVERTONES; i++) {
-				threads[i] = new ThreadedPlayer(lines[i], null);
-			}
-			started = false;
+			// make a player to play each line synchronously
+			this.players = new ThreadedPlayer[Note.NUM_OVERTONES];
+			// make some threads to execute the threaded players.
+			this.threads = new Thread[Note.NUM_OVERTONES];
+			// initialize the threaded players.
+			for (int i = 0; i < Note.NUM_OVERTONES; i++)
+				players[i] = new ThreadedPlayer();
+			this.started = false;
 		}
 
-		public void setOvertones(int[] frequency, int[] amplitude) {
-			for (int i = 0; i < Note.NUM_OVERTONES; i++) {
-				// fill all arrays
-				for (int t = 0; t < SAMPLE_RATE; t++) {
-					sineWaves[i][0][t] = sineWaves[i][2][t] = sineWaves[i][1][t] = (byte) (Math
-							.sin(2 * frequency[i] * Math.PI * t / SAMPLE_RATE) * amplitude[i]);
-				}
-				// remove audible pop
-				double dampening = 7000.0;
-				for (int j = 0; j < dampening; j++) {
-					sineWaves[i][0][j] *= j / dampening;
-					sineWaves[i][2][sineWaves[i][2].length - 1 - j] *= j
-							/ dampening;
-				}
+		public void setFrequency(double frequency) {
+			for (int i = 0; i < players.length; i++) {
+				players[i].frequency = frequency * Math.pow(2, i);
 			}
-			for (int i = 0; i < Note.NUM_OVERTONES; i++) {
-				threads[i].setSineWaves(sineWaves[i]);
+		}
+
+		public void setGain(float gain) {
+			for (ThreadedPlayer player : players) {
+				player.setGain(gain);
+			}
+		}
+
+		public void setAmplitudes(int[] amplitudes) {
+			for (int i = 0; i < players.length; i++) {
+				players[i].amplitude = amplitudes[i];
 			}
 		}
 
 		public void start() {
-			if (threads[0].isPlaying) {
-				return;
-			}
-			started = true;
-			for (int i = 0; i < Note.NUM_OVERTONES; i++) {
-				new Thread(threads[i]).start();
+			if (!started) {
+				started = true;
+				for (int i = 0; i < Note.NUM_OVERTONES; i++) {
+					threads[i] = new Thread(players[i]);
+				}
+				for (int i = 0; i < Note.NUM_OVERTONES; i++) {
+					threads[i].start();
+				}
 			}
 		}
 
 		public void stop() {
-			if (!threads[0].isPlaying) {
-				return;
-			}
-			started = false;
-			for (ThreadedPlayer tp : threads) {
-				tp.stop();
+			if (started) {
+				for (int i = 0; i < players.length; i++) {
+					players[i].stop();
+				}
+				started = false;
 			}
 		}
 
-		private class ThreadedPlayer implements Runnable {
-			private volatile boolean isFinished = false;
-			public boolean isPlaying = false;
-			private SourceDataLine l;
-			private byte[][] s;
+		private static class ThreadedPlayer implements Runnable {
+			public volatile boolean isFinished;
 
-			public ThreadedPlayer(SourceDataLine line, byte[][] sineWaves) {
-				l = line;
-				s = sineWaves;
+			final static int SAMPLE_RATE = 16000; // Hz
+			final static AudioFormat format = new AudioFormat(SAMPLE_RATE, 16,
+					1, true, true);
+			final static public int SAMPLE_SIZE = 2;
+			final static public double BUFFER_DURATION = 0.100;
+			final static public int SINE_PACKET_SIZE = (int) (BUFFER_DURATION
+					* SAMPLE_RATE * SAMPLE_SIZE);
+
+			private int amplitude;
+			private double frequency;
+			private float gain;
+
+			public ThreadedPlayer() {
+				this.isFinished = true;
+				this.gain = 0;
 			}
 
-			public void setSineWaves(byte[][] s) {
-				this.s = s;
+			public void setGain(float gain) {
+				this.gain = gain;
 			}
 
 			@Override
 			public void run() {
-				try {
-					l = AudioSystem.getSourceDataLine(Player.format);
-					l.open();
-				} catch (LineUnavailableException e1) {
-					// TODO Auto-generated catch block
-					e1.printStackTrace();
-				}
 				isFinished = false;
-				isPlaying = true;
-				l.start();
-				l.write(s[0], 0, s[0].length);
-				while (!isFinished) {
-					if (l.available() > (l.getBufferSize() - Player.SAMPLE_RATE)) {
-						l.write(s[1], 0, s[1].length);
+				try {
+					SourceDataLine l;
+					try {
+						DataLine.Info info = new DataLine.Info(
+								SourceDataLine.class, format,
+								SINE_PACKET_SIZE * 2);
+						if (!AudioSystem.isLineSupported(info))
+							throw new LineUnavailableException();
+						l = (SourceDataLine) AudioSystem.getLine(info);
+						l.open(format);
+						l.start();
+					} catch (LineUnavailableException e) {
+						return;
+					}
+					FloatControl control = (FloatControl) l
+							.getControl(FloatControl.Type.MASTER_GAIN);
+					ByteBuffer buffer = ByteBuffer.allocate(SINE_PACKET_SIZE);
+					double cyclePosition = 0;
+					double cycleFraction = frequency / SAMPLE_RATE;
+					while (!isFinished) {
+						control.setValue(gain);
+						buffer.clear();
+						for (int i = 0; i < SINE_PACKET_SIZE / SAMPLE_SIZE; i++) {
+							buffer.putShort((short) (amplitude * Math.sin(2
+									* Math.PI * cyclePosition)));
+							cyclePosition += cycleFraction;
+							if (cyclePosition > 1)
+								cyclePosition -= 1;
+						}
+						l.write(buffer.array(), 0, buffer.position());
 						try {
-							Thread.sleep(Player.SAMPLE_RATE / 190);
+							while (l.getBufferSize() - l.available() > SINE_PACKET_SIZE)
+								Thread.sleep(1);
 						} catch (InterruptedException e) {
+							isFinished = true;
 							break;
 						}
 					}
+					buffer = ByteBuffer.allocate(SINE_PACKET_SIZE/4 );
+					double dampening = 1.0;
+					for (int i = 0; i <  SINE_PACKET_SIZE / SAMPLE_SIZE/4; i++, dampening *= .99) {
+						buffer.putShort((short) (dampening * amplitude * Math
+								.sin(2 * Math.PI * cyclePosition)));
+						cyclePosition += cycleFraction;
+						if (cyclePosition > 1)
+							cyclePosition -= 1;
+					}
+					l.write(buffer.array(), 0, buffer.position());
+					l.drain();
+					l.close();
+					l = null;
+				} catch (NullPointerException e) {
+					// the line was closed and deleted while still running
 				}
-				l.write(s[2], 0, s[2].length);
-				l.drain();
-				l.close();
-				isPlaying = false;
 			}
 
 			public void stop() {

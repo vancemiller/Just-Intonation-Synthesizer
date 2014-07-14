@@ -6,44 +6,28 @@ import java.util.Scanner;
 import java.util.Vector;
 
 public class FileReader {
+	private static String fileName = "instruments.txt";
 
-	public static void loadAmplitudes(String instrument, int[] amplitudes) {
-		Scanner sc;
-		try {
-			sc = new Scanner(new File("instruments.txt"));
-			while (sc.hasNextLine()) {
-				String line = sc.nextLine();
-				if (line.contains(instrument)) {
-					String[] split = line.substring(instrument.length() + 2)
-							.split(", ");
-					for (int i = 0; i < amplitudes.length && i < split.length; i++) {
-						amplitudes[i] = Integer.parseInt(split[i]);
-					}
-					break;
-				}
-			}
-			sc.close();
-		} catch (FileNotFoundException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
+	public static String getFileName() {
+		return fileName;
 	}
-
-	public static Vector<String> getInstruments() {
-		Vector<String> instruments = new Vector<String>();
-		Scanner sc;
-		try {
-			sc = new Scanner(new File("instruments.txt"));
-			while (sc.hasNextLine()) {
-				String line = sc.nextLine();
-				String[] split = line.split(", ");
-				instruments.add(split[0]);
+	
+	public static Vector<Instrument> getInstruments()
+			throws FileNotFoundException {
+		Vector<Instrument> instruments = new Vector<Instrument>();
+		Scanner sc = new Scanner(new File(FileReader.fileName));
+		while (sc.hasNextLine()) {
+			String line = sc.nextLine();
+			String[] split = line.split(", ");
+			if (split[0].substring(0, 12).contains("instrument: ")) {
+				int[] amplitudes = new int[split.length - 1];
+				for (int i = 1; i < split.length-1; i++)
+					amplitudes[i-1] = Integer.parseInt(split[i]);
+				instruments.add(new InstrumentImpl(split[0].substring(12),
+						amplitudes));
 			}
-			sc.close();
-		} catch (FileNotFoundException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
 		}
+		sc.close();
 		return instruments;
 	}
 }
