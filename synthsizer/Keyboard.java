@@ -1,4 +1,4 @@
-package synthesizer;
+package synthsizer;
 
 import java.util.List;
 
@@ -65,5 +65,9 @@ public interface Keyboard {
 	void setSostenutoState(SostenutoState sostenutoState);
 
 	SostenutoState getSostenutoState();
+
+	void setChordType(Chord.Type type);
+
+	Chord.Type getChordType();
 
 }

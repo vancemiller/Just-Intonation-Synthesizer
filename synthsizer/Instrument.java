@@ -1,4 +1,4 @@
-package synthesizer;
+package synthsizer;
 
 public interface Instrument {
 	String getName();

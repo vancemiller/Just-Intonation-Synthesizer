@@ -1,4 +1,6 @@
-package synthesizer;
+package synthsizer;
+
+import helpers.FileHelper;
 
 import java.io.FileNotFoundException;
 

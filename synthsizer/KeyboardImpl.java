@@ -1,9 +1,10 @@
-package synthesizer;
+package synthsizer;
 
 import java.beans.PropertyChangeListener;
 import java.beans.PropertyChangeSupport;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 
 public class KeyboardImpl implements Model {
@@ -17,29 +18,33 @@ public class KeyboardImpl implements Model {
 	private Instrument instrument;
 	private float gain;
 	private Keyboard.Mode mode;
+	private Chord.Type chordType;
+	private HashMap<Integer, Chord> playingChords;
 
 	public KeyboardImpl(Instrument instrument, List<Instrument> instruments,
 			Note.Root root, float gain, Keyboard.Mode mode) {
 		// Property changes
-		changes = new PropertyChangeSupport(this);
+		this.changes = new PropertyChangeSupport(this);
 		// initialize the sustained notes list; nothing is sustained now
-		sustainedNotes = new ArrayList<Note>();
-		isSustaining = false;
+		this.sustainedNotes = new ArrayList<Note>();
+		this.isSustaining = false;
 		// same for sostenuto
-		sostenutoedNotes = new ArrayList<Note>();
-		sostenutoState = Keyboard.SostenutoState.ONE;
+		this.sostenutoedNotes = new ArrayList<Note>();
+		this.sostenutoState = Keyboard.SostenutoState.ONE;
+		// same for chord type
+		this.chordType = Chord.Type.NO_CHORD;
+		this.playingChords = new HashMap<Integer, Chord>(11);
 		// build the notes array
 		Note.Pitch[] pitches = Note.Pitch.values();
-		notes = new Note[pitches.length];
-		for (int i = 0; i < pitches.length; i++) {
+		this.notes = new Note[pitches.length];
+		for (int i = 0; i < pitches.length; i++)
 			notes[i] = new NoteImpl(pitches[i]);
-		}
 		// set the instrument
 		this.instrument = instrument;
 		// set the list of instruments
 		this.instruments = instruments.subList(0, instruments.size());
 		// set the root (for just intonation)
-		r = root;
+		this.r = root;
 		// set the gain
 		this.gain = gain;
 		// set the mode
@@ -143,9 +148,8 @@ public class KeyboardImpl implements Model {
 	@Override
 	public void setIsSustaining(boolean isSustaining) {
 		if (!isSustaining) {
-			for (Note n : sustainedNotes) {
+			for (Note n : sustainedNotes)
 				stopNote(n.getPitch());
-			}
 			sustainedNotes.removeAll(sustainedNotes);
 		}
 		changes.firePropertyChange("sustain", this.isSustaining, isSustaining);
@@ -160,13 +164,11 @@ public class KeyboardImpl implements Model {
 	@Override
 	public void setSostenutoState(Keyboard.SostenutoState sostenutoState) {
 		if (sostenutoState.equals(Keyboard.SostenutoState.ONE)) {
-			if (!isSustaining) {
-				for (Note n : sostenutoedNotes) {
+			if (!isSustaining)
+				for (Note n : sostenutoedNotes)
 					stopNote(n.getPitch());
-				}
-			} else {
+			else
 				sustainedNotes.addAll(sostenutoedNotes);
-			}
 			sostenutoedNotes.removeAll(sostenutoedNotes);
 		}
 		changes.firePropertyChange("sostenuto", this.sostenutoState,
@@ -188,16 +190,19 @@ public class KeyboardImpl implements Model {
 
 	@Override
 	public void startNote(int i) {
-		noteStarter(i);
-		try {
-			if (mode.equals(Keyboard.Mode.CHORD)) {
-
-				noteStarter(i + 4);
-				noteStarter(i + 7);
-			}
-		} catch (ArrayIndexOutOfBoundsException e) {
-
+		if (!chordType.equals(Chord.Type.NO_CHORD)) {
+			setRoot(Note.Root.values()[1 + i % 12]);
+		} else {
+			setRoot(Note.Root.EQUAL_TEMPERMENT);
 		}
+
+		for (int j : chordType.halfStepsFromRoot)
+			try {
+				noteStarter(i + j);
+			} catch (ArrayIndexOutOfBoundsException e) {
+
+			}
+		playingChords.put(i, new ChordImpl(chordType.halfStepsFromRoot));
 	}
 
 	private void noteStarter(int i) {
@@ -218,15 +223,18 @@ public class KeyboardImpl implements Model {
 
 	@Override
 	public void stopNote(int i) {
-		noteStopper(i);
-		try {
-			if (mode.equals(Keyboard.Mode.CHORD)) {
-				noteStopper(i + 4);
-				noteStopper(i + 7);
-			}
-		} catch (ArrayIndexOutOfBoundsException e) {
+		Chord chord = playingChords.remove(i);
+		int[] notes;
+		if (chord == null)
+			notes = new int[] { i };
+		else
+			notes = chord.getNotes();
+		for (int j : notes)
+			try {
+				noteStopper(i + j);
+			} catch (ArrayIndexOutOfBoundsException e) {
 
-		}
+			}
 	}
 
 	private void noteStopper(int i) {
@@ -236,9 +244,8 @@ public class KeyboardImpl implements Model {
 
 	@Override
 	public void stopAll() {
-		while (!sustainedNotes.isEmpty()) {
+		while (!sustainedNotes.isEmpty())
 			stopNote(sustainedNotes.get(0).getPitch());
-		}
 	}
 
 	/** Property Change support */
@@ -251,5 +258,16 @@ public class KeyboardImpl implements Model {
 	@Override
 	public void removePropertyChangeListener(PropertyChangeListener l) {
 		changes.removePropertyChangeListener(l);
+	}
+
+	@Override
+	public void setChordType(Chord.Type type) {
+		changes.firePropertyChange("chordType", this.chordType, type);
+		this.chordType = type;
+	}
+
+	@Override
+	public Chord.Type getChordType() {
+		return chordType;
 	}
 }
