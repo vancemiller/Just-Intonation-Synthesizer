@@ -3,12 +3,15 @@ package testing;
 import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Graphics;
+import java.awt.Polygon;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
 
 import javax.swing.JFrame;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
+
+import testing.Note.Pitch;
 
 public class View {
 	Model m;
@@ -37,118 +40,116 @@ class KeyboardPanel extends JPanel implements MouseListener {
 
 	private static final long serialVersionUID = -7261532115653344378L;
 
+	private final Keys k;
+
 	private static class Keys {
-		public static final int BLACK_KEY_WIDTH = 30, BLACK_KEY_HEIGHT = 140,
-				WHITE_KEY_WIDTH = 50, WHITE_KEY_HEIGHT = 200,
-				NUM_WHITE_KEYS = 52, NUM_OCTAVES = 7;
 
-		private static final int keyPositionStart[] = { 0, 1, 1 };
-		private static final boolean isBlackStart[] = { false, true, false };
+		private final Key[] keys;
 
-		private static final int keyPositionOctave[] = { 0, 1, 1, 2, 2, 3, 4,
-				4, 5, 5, 6, 6 };
-		private static final boolean isBlackOctave[] = { false, true, false,
-				true, false, false, true, false, true, false, true, false };
-
-		private static final int keyPositionEnd[] = { 0 };
-		private static final boolean isBlackEnd[] = { false };
-
-
-		
-		public static int getPosition(int keyNumber) {
-			int ret;
-			if (keyNumber < 0 || keyNumber > getNumKeys()) {
-				throw new ArrayIndexOutOfBoundsException("Invalid key number");
-			} else if (keyNumber < keyPositionStart.length) {
-				ret =  keyPositionStart[keyNumber];
-			} else if (keyNumber - keyPositionStart.length < keyPositionOctave.length
-					* NUM_OCTAVES) {
-				keyNumber -= keyPositionStart.length;
-				int keyPos = keyPositionStart[keyPositionStart.length - 1]
-						+ 1
-						+ keyPositionOctave[keyNumber
-								% keyPositionOctave.length]
-						+ (keyPositionOctave[keyPositionOctave.length - 1] + 1)
-						* (keyNumber / keyPositionOctave.length);
-				ret = keyPos;
-			} else {
-				keyNumber -= keyPositionStart.length
-						+ (keyPositionOctave.length) * NUM_OCTAVES;
-				int keyPos = keyPositionStart[keyPositionStart.length - 1] + 1
-						+ NUM_OCTAVES
-						* (keyPositionOctave[keyPositionOctave.length - 1] + 1);
-				ret = keyPos + keyPositionEnd[keyNumber];
+		public Keys(Note.Pitch start, Note.Pitch end, int numOctaves) {
+			keys = new Key[Note.Pitch.totalPitches - start.ordinal()
+					+ Note.Pitch.totalPitches * numOctaves + end.ordinal()];
+			int count = 0;
+			if (start.next().isAccidental)
+				keys[count] = new Key(start, Key.Shape.L);
+			else if (start.isAccidental)
+				keys[count] = new Key(start, Key.Shape.BLACK);
+			else
+				keys[count] = new Key(start, Key.Shape.FULL);
+			count++;
+			for (Note.Pitch p = start.next(); p.ordinal() < Note.Pitch.totalPitches; p = p
+					.next()) {
+				addKey(p, count);
+				count++;
 			}
-			System.out.print(ret + ", ");
-			return ret;
+			for (int octave = 0; octave < numOctaves; octave++)
+				for (Note.Pitch p : Note.Pitch.values()) {
+					addKey(p, count);
+					count++;
+				}
+			for (Note.Pitch p = Note.Pitch.start; p.next().ordinal() < end
+					.ordinal(); p = p.next()) {
+				addKey(p, count);
+				count++;
+			}
+			if (end.previous().isAccidental)
+				keys[count] = new Key(end, Key.Shape.R);
+			else if (end.isAccidental)
+				keys[count] = new Key(end, Key.Shape.BLACK);
+			else
+				keys[count] = new Key(end, Key.Shape.FULL);
 		}
 
-		private static boolean isBlack(int keyNumber) {
-			if (keyNumber < 0
-					|| keyNumber > isBlackStart.length + isBlackOctave.length
-							* NUM_OCTAVES + isBlackEnd.length)
-				throw new ArrayIndexOutOfBoundsException("Invalid key number");
-			if (keyNumber < isBlackStart.length)
-				return isBlackStart[keyNumber];
-			keyNumber -= isBlackStart.length;
-			if (keyNumber < isBlackOctave.length * NUM_OCTAVES)
-				return isBlackOctave[keyNumber % isBlackOctave.length];
-
-			keyNumber -= keyPositionOctave.length * NUM_OCTAVES;
-			return isBlackEnd[keyNumber];
+		private void addKey(Pitch p, int count) {
+			if (p.isAccidental)
+				keys[count] = new Key(p, Key.Shape.BLACK);
+			else if (p.next().isAccidental && p.previous().isAccidental)
+				keys[count] = new Key(p, Key.Shape.T);
+			else if (p.next().isAccidental)
+				keys[count] = new Key(p, Key.Shape.L);
+			else if (p.previous().isAccidental)
+				keys[count] = new Key(p, Key.Shape.R);
+			else
+				keys[count] = new Key(p, Key.Shape.FULL);
 		}
 
-		public static void drawKey(Graphics g, int keyNumber) {
-			if (isBlack(keyNumber)) {
-				g.fillRect(getPosition(keyNumber) * WHITE_KEY_WIDTH
-						- BLACK_KEY_WIDTH / 2, 0, BLACK_KEY_WIDTH,
-						BLACK_KEY_HEIGHT);
-			} else {
-				g.drawRect(getPosition(keyNumber) * WHITE_KEY_WIDTH, 0,
-						WHITE_KEY_WIDTH, WHITE_KEY_HEIGHT);
-			}
+		public void drawKeys(Graphics g) {
+			for (Key k : keys)
+				k.drawKey(g, 6, 0);
 		}
 
 		public static int getNumKeys() {
-			return keyPositionStart.length + NUM_OCTAVES
-					* keyPositionOctave.length + keyPositionEnd.length;
+			// TODO Auto-generated method stub
+			return 0;
 		}
 
-		public static int getKeyNum(MouseEvent e)
-				throws ArrayIndexOutOfBoundsException {
-			// PRE: mouse event is in the key area
-			int rawKeyPos = e.getPoint().x / WHITE_KEY_WIDTH;
-			int verticalPos = e.getPoint().y;
-			if (rawKeyPos <= keyPositionStart[keyPositionStart.length - 1]) {
-				for (int i = 0; i < keyPositionStart.length; i++)
-					if (rawKeyPos == keyPositionStart[i])
-						if (verticalPos <= BLACK_KEY_HEIGHT)
-							return i;
-						else
-							return i + 1;
-			} else if (rawKeyPos <= keyPositionStart[keyPositionStart.length - 1]
-					+ 1
-					+ NUM_OCTAVES
-					* (keyPositionOctave[keyPositionOctave.length - 1] + 1)) {
-				for (int j = 0; j < NUM_OCTAVES; j++)
-					for (int i = 0; i < keyPositionOctave.length; i++)
-						if (rawKeyPos == keyPositionOctave[i]
-								+ keyPositionOctave[keyPositionOctave.length - 1]
-								* j)
-							return keyPositionStart.length + i
-									+ keyPositionOctave.length * j;
-			} else {
-				for (int i = 0; i < keyPositionEnd.length; i++)
-					if (rawKeyPos == (keyPositionOctave[keyPositionOctave.length - 1] + 1)
-							* NUM_OCTAVES
-							+ keyPositionStart[keyPositionStart.length - 1]
-							+ 1
-							+ keyPositionEnd[i])
-						return keyPositionStart.length + NUM_OCTAVES
-								* keyPositionOctave.length + i;
+		private static class Key {
+			public static final int BLACK_KEY_WIDTH = 30,
+					BLACK_KEY_HEIGHT = 140, WHITE_KEY_WIDTH = 50,
+					WHITE_KEY_HEIGHT = 200;
+
+			public static enum Shape {
+				L, R, FULL, T, BLACK
+			};
+
+			private final Note.Pitch pitch;
+			private final Shape shape;
+
+			public Key(Note.Pitch pitch, Shape shape) {
+				this.pitch = pitch;
+				this.shape = shape;
 			}
-			throw new ArrayIndexOutOfBoundsException(
-					"Invalid key position mouse event");
+
+			public void drawKey(Graphics g, int x, int y) {
+				g.setColor(Color.BLACK);
+				if (pitch.isAccidental) {
+					g.fillRect(x, y, BLACK_KEY_WIDTH, BLACK_KEY_HEIGHT);
+				} else {
+					Polygon p = new Polygon();
+					p.addPoint(x, y);
+					switch (shape) {
+					case L:
+						p.addPoint(x, y + WHITE_KEY_HEIGHT);
+						break;
+					case BLACK:
+						break;
+					case FULL:
+						break;
+					case R:
+						break;
+					case T:
+						break;
+					default:
+						break;
+					}
+					g.drawPolygon(p);
+				}
+			}
+
+			public void press() {
+				System.out.println(pitch);
+			}
+
 		}
 	}
 
@@ -159,26 +160,23 @@ class KeyboardPanel extends JPanel implements MouseListener {
 		this.setMaximumSize(size);
 		this.setBackground(Color.white);
 		this.addMouseListener(this);
+		k = new Keys(Note.Pitch.A, Note.Pitch.C, 7);
 	}
 
+	@Override
 	public Dimension getPreferredSize() {
-		return new Dimension(Keys.NUM_WHITE_KEYS * Keys.WHITE_KEY_WIDTH,
-				Keys.WHITE_KEY_HEIGHT);
+		return new Dimension(Keys.getNumKeys() * Keys.Key.WHITE_KEY_WIDTH,
+				Keys.Key.WHITE_KEY_HEIGHT);
 	}
 
+	@Override
 	public void paintComponent(Graphics g) {
 		super.paintComponent(g);
-		drawKeys(g);
-	}
-
-	private void drawKeys(Graphics g) {
-		for (int keyNumber = 0; keyNumber < Keys.getNumKeys(); keyNumber++) {
-			Keys.drawKey(g, keyNumber);
-		}
+		k.drawKeys(g);
 	}
 
 	private void pressKey(MouseEvent e) {
-		System.out.println(Keys.getKeyNum(e));
+		// TODO
 	}
 
 	@Override

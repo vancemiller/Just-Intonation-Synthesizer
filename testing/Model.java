@@ -20,16 +20,25 @@ class Note {
 	public static final double tuning = 440.0;
 
 	public enum Pitch {
-		A(0), Bb(1), B(2), C(3), Db(4), D(5), Eb(6), E(7), F(8), Gb(9), G(10), Ab(
-				11);
+		A(0, false), Bb(1, true), B(2, false), C(3, false), Db(4, true), D(5,
+				false), Eb(6, true), E(7, false), F(8, false), Gb(9, true), G(
+				10, false), Ab(11, true);
 		public final int halfStepsFromA;
+		public final boolean isAccidental;
+		public final static int totalPitches = 12;
+		public final static Pitch start = A;
 
-		Pitch(int halfStepsFromA) {
+		Pitch(int halfStepsFromA, boolean isAccidental) {
 			this.halfStepsFromA = halfStepsFromA;
+			this.isAccidental = isAccidental;
 		}
 
 		public Pitch next() {
-			return values()[ordinal() + 1 % values().length];
+			return values()[(ordinal() + 1) % values().length];
+		}
+
+		public Pitch previous() {
+			return values()[Math.abs((ordinal() - 1) % values().length)];
 		}
 	}
 
@@ -57,9 +66,9 @@ class Note {
 
 	}
 
-	private Pitch root;
-	private int octave;
-	private Interval intervalFromRoot;
+	private final Pitch root;
+	private final int octave;
+	private final Interval intervalFromRoot;
 
 	public Note(Pitch root, int octave, Interval intervalFromRoot) {
 		this.root = root;
@@ -160,7 +169,7 @@ class Note {
 	private static byte[] generateSineWavefreq(double amplitude,
 			double frequencyOfSignal, int milliseconds) {
 		byte[] sin = new byte[(int) (milliseconds / 1000.0 * Model.SAMPLE_RATE)];
-		double samplingInterval = (double) (Model.SAMPLE_RATE / frequencyOfSignal);
+		double samplingInterval = Model.SAMPLE_RATE / frequencyOfSignal;
 		for (int i = 0; i < sin.length; i++) {
 			double angle = (2.0 * Math.PI * i) / samplingInterval;
 			sin[i] = (byte) (Math.sin(angle) * amplitude * 127.0);
@@ -189,6 +198,7 @@ class Note {
 		return intervalFromRoot;
 	}
 
+	@Override
 	public Note clone() {
 		return new Note(root, octave, intervalFromRoot);
 	}
@@ -245,7 +255,7 @@ class Chord {
 }
 
 class Triad extends Chord {
-	private Type type;
+	private final Type type;
 
 	public enum Type {
 		MAJOR, MINOR, AUGMENTED, DIMINISHED;
@@ -306,7 +316,7 @@ class Triad extends Chord {
 }
 
 class SeventhChord extends Triad {
-	private Type type;
+	private final Type type;
 
 	public enum Type {
 		DIMINISHED(Triad.Type.DIMINISHED), HALF_DIMINISHED(
@@ -378,7 +388,7 @@ class SeventhChord extends Triad {
 }
 
 class ExtendedChord extends SeventhChord {
-	private Type type;
+	private final Type type;
 
 	public enum Type {
 		DOMINANT_NINTH(SeventhChord.Type.DOMINANT), DOMINANT_ELEVENTH(
