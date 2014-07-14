@@ -1,6 +1,7 @@
 package testing;
 
 public interface Keyboard {
+
 	Note getNote(Note.Pitch p);
 	
 	Note getNote(int i);
@@ -14,4 +15,6 @@ public interface Keyboard {
 	void stopNote(int i);
 
 	Note[] getNotes();
+	
+	void setKey(Note.Key k);
 }

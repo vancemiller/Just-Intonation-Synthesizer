@@ -2,21 +2,19 @@ package testing;
 
 import java.util.Arrays;
 
-import testing.Note.Pitch;
-
 public class KeyboardImpl implements Keyboard {
-	private final Note[] notes;
+	private final RetunableNote[] notes;
 
 	public KeyboardImpl() {
-		Pitch[] pitches = Note.Pitch.values();
-		this.notes = new Note[pitches.length];
+		Note.Pitch[] pitches = Note.Pitch.values();
+		this.notes = new RetunableNote[pitches.length];
 		for (int i = 0; i < pitches.length; i++) {
-			notes[i] = new UntunedNote(pitches[i]);
+			notes[i] = new RetunableNote(pitches[i]);
 		}
 	}
 
 	@Override
-	public Note getNote(Pitch p) {
+	public Note getNote(Note.Pitch p) {
 		return notes[p.ordinal()];
 	}
 
@@ -26,7 +24,7 @@ public class KeyboardImpl implements Keyboard {
 	}
 
 	@Override
-	public void startNote(Pitch p) {
+	public void startNote(Note.Pitch p) {
 		notes[p.ordinal()].start();
 	}
 
@@ -36,7 +34,7 @@ public class KeyboardImpl implements Keyboard {
 	}
 
 	@Override
-	public void stopNote(Pitch p) {
+	public void stopNote(Note.Pitch p) {
 		notes[p.ordinal()].stop();
 	}
 
@@ -48,5 +46,12 @@ public class KeyboardImpl implements Keyboard {
 	@Override
 	public Note[] getNotes() {
 		return Arrays.copyOf(notes, notes.length);
+	}
+
+	@Override
+	public void setKey(Note.Key k) {
+		for (RetunableNote n : notes) {
+			n.tuneNote(k);
+		}
 	}
 }

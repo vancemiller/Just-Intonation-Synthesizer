@@ -10,10 +10,12 @@ public class NoteImpl implements Note {
 	private Pitch root;
 	private Interval intervalFromRoot;
 	private Player p;
+	private boolean isPlaying;
 
 	public NoteImpl(Pitch root, Interval unison) {
 		this.root = root;
 		this.intervalFromRoot = unison;
+		this.isPlaying = false;
 		int freq = (int) (getFrequencyOfRoot() * unison.ratio);
 		int[] overtones = new int[Note.NUM_OVERTONES];
 		int[] amplitudes = new int[Note.NUM_OVERTONES];
@@ -59,12 +61,18 @@ public class NoteImpl implements Note {
 
 	@Override
 	public void start() {
-		p.start();
+		if (!isPlaying) {
+			p.start();
+			isPlaying = true;
+		}
 	}
 
 	@Override
 	public void stop() {
-		p.stop();
+		if (isPlaying) {
+			p.stop();
+			isPlaying = false;
+		}
 	}
 
 	/** Helpers */
@@ -162,7 +170,7 @@ public class NoteImpl implements Note {
 					if (l.available() > (l.getBufferSize() - Player.SAMPLE_RATE)) {
 						l.write(s[1], 0, s[1].length);
 						try {
-							Thread.sleep(Player.SAMPLE_RATE / 200);
+							Thread.sleep(Player.SAMPLE_RATE / 190);
 						} catch (InterruptedException e) {
 							break;
 						}
