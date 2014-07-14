@@ -8,43 +8,44 @@ import java.util.HashMap;
 import java.util.List;
 
 public class KeyboardImpl implements Model {
-	private PropertyChangeSupport changes;
-	private Note[] notes;
+	private final PropertyChangeSupport changes;
+	private final Note[] notes;
 	private boolean isSustaining;
 	private Keyboard.SostenutoState sostenutoState;
-	private List<Note> sustainedNotes, sostenutoedNotes;
+	private final List<Note> sustainedNotes, sostenutoedNotes;
 	private List<Instrument> instruments;
 	private Note.Root r;
 	private Instrument instrument;
 	private float gain;
 	private Keyboard.Mode mode;
 	private Chord.Type chordType;
-	private HashMap<Integer, Chord> playingChords;
+	private final HashMap<Integer, Chord> playingChords;
 
 	public KeyboardImpl(Instrument instrument, List<Instrument> instruments,
 			Note.Root root, float gain, Keyboard.Mode mode) {
 		// Property changes
-		this.changes = new PropertyChangeSupport(this);
+		changes = new PropertyChangeSupport(this);
 		// initialize the sustained notes list; nothing is sustained now
-		this.sustainedNotes = new ArrayList<Note>();
-		this.isSustaining = false;
+		sustainedNotes = new ArrayList<Note>();
+		isSustaining = false;
 		// same for sostenuto
-		this.sostenutoedNotes = new ArrayList<Note>();
-		this.sostenutoState = Keyboard.SostenutoState.ONE;
+		sostenutoedNotes = new ArrayList<Note>();
+		sostenutoState = Keyboard.SostenutoState.ONE;
 		// same for chord type
-		this.chordType = Chord.Type.NO_CHORD;
-		this.playingChords = new HashMap<Integer, Chord>(11);
+		chordType = Chord.Type.NO_CHORD;
+		playingChords = new HashMap<Integer, Chord>(11);
 		// build the notes array
 		Note.Pitch[] pitches = Note.Pitch.values();
-		this.notes = new Note[pitches.length];
-		for (int i = 0; i < pitches.length; i++)
+		notes = new Note[pitches.length];
+		for (int i = 0; i < pitches.length; i++) {
 			notes[i] = new NoteImpl(pitches[i]);
+		}
 		// set the instrument
 		this.instrument = instrument;
 		// set the list of instruments
 		this.instruments = instruments.subList(0, instruments.size());
 		// set the root (for just intonation)
-		this.r = root;
+		r = root;
 		// set the gain
 		this.gain = gain;
 		// set the mode
@@ -58,47 +59,16 @@ public class KeyboardImpl implements Model {
 				Keyboard.Mode.SINGLE_NOTE);
 	}
 
-	@Override
-	public String toString() {
-		return "Keyboard Model";
-	}
+	/** Property Change support */
 
-	private void updateKeys() {
-		for (Note n : notes) {
-			n.update(this);
-		}
+	@Override
+	public void addPropertyChangeListener(PropertyChangeListener l) {
+		changes.addPropertyChangeListener(l);
 	}
 
 	@Override
-	public void setRoot(Note.Root r) {
-		Note.Root old = this.r;
-		this.r = r;
-		updateKeys();
-		changes.firePropertyChange("root", old, r);
-	}
-
-	@Override
-	public Note.Root getRoot() {
-		return r;
-	}
-
-	@Override
-	public void setMode(Mode mode) {
-		changes.firePropertyChange("mode", this.mode, mode);
-		this.mode = mode;
-	}
-
-	@Override
-	public Keyboard.Mode getMode() {
-		return mode;
-	}
-
-	@Override
-	public void setGain(float gain) {
-		float old = this.gain;
-		this.gain = gain;
-		updateKeys();
-		changes.firePropertyChange("gain", old, gain);
+	public Chord.Type getChordType() {
+		return chordType;
 	}
 
 	@Override
@@ -107,18 +77,8 @@ public class KeyboardImpl implements Model {
 	}
 
 	@Override
-	public Note getNote(Note.Pitch p) {
-		return getNote(p.ordinal());
-	}
-
-	@Override
-	public Note getNote(int i) {
-		return notes[i];
-	}
-
-	@Override
-	public Note[] getNotes() {
-		return Arrays.copyOf(notes, notes.length);
+	public Instrument getInstrument() {
+		return instrument;
 	}
 
 	@Override
@@ -127,53 +87,28 @@ public class KeyboardImpl implements Model {
 	}
 
 	@Override
-	public void setInstruments(List<Instrument> instruments) {
-		changes.firePropertyChange("instruments", this.instruments, instruments);
-		this.instruments = instruments;
+	public Keyboard.Mode getMode() {
+		return mode;
 	}
 
 	@Override
-	public Instrument getInstrument() {
-		return instrument;
+	public Note getNote(int i) {
+		return notes[i];
 	}
 
 	@Override
-	public void setInstrument(Instrument instrument) {
-		Instrument old = this.instrument;
-		this.instrument = instrument;
-		updateKeys();
-		changes.firePropertyChange("instrument", old, instrument);
+	public Note getNote(Note.Pitch p) {
+		return getNote(p.ordinal());
 	}
 
 	@Override
-	public void setIsSustaining(boolean isSustaining) {
-		if (!isSustaining) {
-			for (Note n : sustainedNotes)
-				stopNote(n.getPitch());
-			sustainedNotes.removeAll(sustainedNotes);
-		}
-		changes.firePropertyChange("sustain", this.isSustaining, isSustaining);
-		this.isSustaining = isSustaining;
+	public Note[] getNotes() {
+		return Arrays.copyOf(notes, notes.length);
 	}
 
 	@Override
-	public boolean isSustaining() {
-		return isSustaining;
-	}
-
-	@Override
-	public void setSostenutoState(Keyboard.SostenutoState sostenutoState) {
-		if (sostenutoState.equals(Keyboard.SostenutoState.ONE)) {
-			if (!isSustaining)
-				for (Note n : sostenutoedNotes)
-					stopNote(n.getPitch());
-			else
-				sustainedNotes.addAll(sostenutoedNotes);
-			sostenutoedNotes.removeAll(sostenutoedNotes);
-		}
-		changes.firePropertyChange("sostenuto", this.sostenutoState,
-				sostenutoState);
-		this.sostenutoState = sostenutoState;
+	public Note.Root getRoot() {
+		return r;
 	}
 
 	@Override
@@ -181,28 +116,9 @@ public class KeyboardImpl implements Model {
 		return sostenutoState;
 	}
 
-	/** Playing support */
-
 	@Override
-	public void startNote(Note.Pitch p) {
-		startNote(p.ordinal());
-	}
-
-	@Override
-	public void startNote(int i) {
-		if (!chordType.equals(Chord.Type.NO_CHORD)) {
-			setRoot(Note.Root.values()[1 + i % 12]);
-		} else {
-			setRoot(Note.Root.EQUAL_TEMPERMENT);
-		}
-
-		for (int j : chordType.halfStepsFromRoot)
-			try {
-				noteStarter(i + j);
-			} catch (ArrayIndexOutOfBoundsException e) {
-
-			}
-		playingChords.put(i, new ChordImpl(chordType.halfStepsFromRoot));
+	public boolean isSustaining() {
+		return isSustaining;
 	}
 
 	private void noteStarter(int i) {
@@ -216,43 +132,9 @@ public class KeyboardImpl implements Model {
 		changes.firePropertyChange("start", null, i);
 	}
 
-	@Override
-	public void stopNote(Note.Pitch p) {
-		stopNote(p.ordinal());
-	}
-
-	@Override
-	public void stopNote(int i) {
-		Chord chord = playingChords.remove(i);
-		int[] notes;
-		if (chord == null)
-			notes = new int[] { i };
-		else
-			notes = chord.getNotes();
-		for (int j : notes)
-			try {
-				noteStopper(i + j);
-			} catch (ArrayIndexOutOfBoundsException e) {
-
-			}
-	}
-
 	private void noteStopper(int i) {
 		notes[i].stop();
 		changes.firePropertyChange("stop", null, i);
-	}
-
-	@Override
-	public void stopAll() {
-		while (!sustainedNotes.isEmpty())
-			stopNote(sustainedNotes.get(0).getPitch());
-	}
-
-	/** Property Change support */
-
-	@Override
-	public void addPropertyChangeListener(PropertyChangeListener l) {
-		changes.addPropertyChangeListener(l);
 	}
 
 	@Override
@@ -262,12 +144,138 @@ public class KeyboardImpl implements Model {
 
 	@Override
 	public void setChordType(Chord.Type type) {
-		changes.firePropertyChange("chordType", this.chordType, type);
-		this.chordType = type;
+		changes.firePropertyChange("chordType", chordType, type);
+		chordType = type;
 	}
 
 	@Override
-	public Chord.Type getChordType() {
-		return chordType;
+	public void setGain(float gain) {
+		float old = this.gain;
+		this.gain = gain;
+		updateKeys();
+		changes.firePropertyChange("gain", old, gain);
+	}
+
+	@Override
+	public void setInstrument(Instrument instrument) {
+		Instrument old = this.instrument;
+		this.instrument = instrument;
+		updateKeys();
+		changes.firePropertyChange("instrument", old, instrument);
+	}
+
+	@Override
+	public void setInstruments(List<Instrument> instruments) {
+		changes.firePropertyChange("instruments", this.instruments, instruments);
+		this.instruments = instruments;
+	}
+
+	@Override
+	public void setIsSustaining(boolean isSustaining) {
+		if (!isSustaining) {
+			for (Note n : sustainedNotes) {
+				stopNote(n.getPitch());
+			}
+			sustainedNotes.removeAll(sustainedNotes);
+		}
+		changes.firePropertyChange("sustain", this.isSustaining, isSustaining);
+		this.isSustaining = isSustaining;
+	}
+
+	@Override
+	public void setMode(Mode mode) {
+		changes.firePropertyChange("mode", this.mode, mode);
+		this.mode = mode;
+	}
+
+	@Override
+	public void setRoot(Note.Root r) {
+		Note.Root old = this.r;
+		this.r = r;
+		updateKeys();
+		changes.firePropertyChange("root", old, r);
+	}
+
+	@Override
+	public void setSostenutoState(Keyboard.SostenutoState sostenutoState) {
+		if (sostenutoState.equals(Keyboard.SostenutoState.ONE)) {
+			if (!isSustaining) {
+				for (Note n : sostenutoedNotes) {
+					stopNote(n.getPitch());
+				}
+			} else {
+				sustainedNotes.addAll(sostenutoedNotes);
+			}
+			sostenutoedNotes.removeAll(sostenutoedNotes);
+		}
+		changes.firePropertyChange("sostenuto", this.sostenutoState,
+				sostenutoState);
+		this.sostenutoState = sostenutoState;
+	}
+
+	@Override
+	public void startNote(int i) {
+		if (!chordType.equals(Chord.Type.NO_CHORD)) {
+			setRoot(Note.Root.values()[1 + i % 12]);
+		} else {
+			setRoot(Note.Root.EQUAL_TEMPERMENT);
+		}
+
+		for (int j : chordType.halfStepsFromRoot) {
+			try {
+				noteStarter(i + j);
+			} catch (ArrayIndexOutOfBoundsException e) {
+
+			}
+		}
+		playingChords.put(i, new ChordImpl(chordType.halfStepsFromRoot));
+	}
+
+	/** Playing support */
+
+	@Override
+	public void startNote(Note.Pitch p) {
+		startNote(p.ordinal());
+	}
+
+	@Override
+	public void stopAll() {
+		while (!sustainedNotes.isEmpty()) {
+			stopNote(sustainedNotes.get(0).getPitch());
+		}
+	}
+
+	@Override
+	public void stopNote(int i) {
+		Chord chord = playingChords.remove(i);
+		int[] notes;
+		if (chord == null) {
+			notes = new int[] { i };
+		} else {
+			notes = chord.getNotes();
+		}
+		for (int j : notes) {
+			try {
+				noteStopper(i + j);
+			} catch (ArrayIndexOutOfBoundsException e) {
+
+			}
+		}
+	}
+
+	@Override
+	public void stopNote(Note.Pitch p) {
+		stopNote(p.ordinal());
+	}
+
+	@Override
+	public String toString() {
+		return "Keyboard Model";
+	}
+
+	private void updateKeys() {
+		for (Note n : notes) {
+			n.update(this);
+		}
 	}
 }

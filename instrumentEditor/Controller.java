@@ -16,7 +16,7 @@ import synthsizer.Instrument;
 import synthsizer.InstrumentImpl;
 
 public class Controller implements PropertyChangeListener {
-	private InstrumentView view;
+	private final InstrumentView view;
 	private int currentlySelected = -1;
 	private boolean creatingNewInstrument;
 	private String newInstrumentName;
@@ -36,6 +36,11 @@ public class Controller implements PropertyChangeListener {
 							"Instrument file missing",
 							JOptionPane.ERROR_MESSAGE);
 		}
+	}
+
+	private void handleListSelectionChange(int newValue) {
+		currentlySelected = newValue;
+		view.selectInstrument(newValue);
 	}
 
 	@Override
@@ -111,10 +116,5 @@ public class Controller implements PropertyChangeListener {
 		} else if (evt.getSource() instanceof JSlider) {
 
 		}
-	}
-
-	private void handleListSelectionChange(int newValue) {
-		currentlySelected = newValue;
-		view.selectInstrument(newValue);
 	}
 }

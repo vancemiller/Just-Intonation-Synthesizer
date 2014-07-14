@@ -3,18 +3,14 @@ package synthsizer;
 import java.util.List;
 
 public interface Keyboard {
-	enum SostenutoState {
-		ONE, TWO, THREE;
-	}
-
 	enum Mode {
 		SINGLE_NOTE("Single note"), CHORD("Chord");
+
+		public final String name;
 
 		Mode(String name) {
 			this.name = name;
 		}
-
-		public final String name;
 
 		@Override
 		public String toString() {
@@ -22,52 +18,56 @@ public interface Keyboard {
 		}
 	}
 
-	Note getNote(Note.Pitch p);
+	enum SostenutoState {
+		ONE, TWO, THREE;
+	}
 
-	Note getNote(int i);
-
-	void startNote(Note.Pitch p);
-
-	void startNote(int i);
-
-	void stopNote(Note.Pitch p);
-
-	void stopNote(int i);
-
-	Note[] getNotes();
-
-	void stopAll();
-
-	List<Instrument> getInstruments();
-
-	void setInstruments(List<Instrument> instruments);
-
-	Instrument getInstrument();
-
-	void setInstrument(Instrument instrument);
-
-	void setGain(float gain);
+	Chord.Type getChordType();
 
 	float getGain();
 
-	void setRoot(Note.Root r);
+	Instrument getInstrument();
 
-	Note.Root getRoot();
-
-	void setMode(Mode mode);
+	List<Instrument> getInstruments();
 
 	Keyboard.Mode getMode();
 
-	void setIsSustaining(boolean isSustaining);
+	Note getNote(int i);
 
-	boolean isSustaining();
+	Note getNote(Note.Pitch p);
 
-	void setSostenutoState(SostenutoState sostenutoState);
+	Note[] getNotes();
+
+	Note.Root getRoot();
 
 	SostenutoState getSostenutoState();
 
+	boolean isSustaining();
+
 	void setChordType(Chord.Type type);
 
-	Chord.Type getChordType();
+	void setGain(float gain);
+
+	void setInstrument(Instrument instrument);
+
+	void setInstruments(List<Instrument> instruments);
+
+	void setIsSustaining(boolean isSustaining);
+
+	void setMode(Mode mode);
+
+	void setRoot(Note.Root r);
+
+	void setSostenutoState(SostenutoState sostenutoState);
+
+	void startNote(int i);
+
+	void startNote(Note.Pitch p);
+
+	void stopAll();
+
+	void stopNote(int i);
+
+	void stopNote(Note.Pitch p);
 
 }

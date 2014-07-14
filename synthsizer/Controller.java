@@ -4,8 +4,8 @@ import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
 
 public class Controller implements PropertyChangeListener {
-	private View view;
-	private Model model;
+	private final View view;
+	private final Model model;
 
 	public Controller(View view, Model model) {
 		this.view = view;
@@ -49,9 +49,11 @@ public class Controller implements PropertyChangeListener {
 				model.setChordType((Chord.Type) evt.getNewValue());
 				break;
 			default:
-				System.out.printf("%10.10s: %8.8s changed from %8.8s to %8.8s and was not handled.\n", evt
-						.getSource().toString(), evt.getPropertyName(), evt
-						.getOldValue(), evt.getNewValue());
+				System.out
+						.printf("%10.10s: %8.8s changed from %8.8s to %8.8s and was not handled.\n",
+								evt.getSource().toString(),
+								evt.getPropertyName(), evt.getOldValue(),
+								evt.getNewValue());
 				break;
 			}
 		} else if (evt.getSource() instanceof Model) {
@@ -86,9 +88,11 @@ public class Controller implements PropertyChangeListener {
 				view.setChordType((Chord.Type) evt.getNewValue());
 				break;
 			default:
-				System.out.printf("%10.10s: %8.8s changed from %8.8s to %8.8s and was not handled.\n", evt
-						.getSource().toString(), evt.getPropertyName(), evt
-						.getOldValue(), evt.getNewValue());
+				System.out
+						.printf("%10.10s: %8.8s changed from %8.8s to %8.8s and was not handled.\n",
+								evt.getSource().toString(),
+								evt.getPropertyName(), evt.getOldValue(),
+								evt.getNewValue());
 				break;
 			}
 		}

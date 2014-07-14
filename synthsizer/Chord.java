@@ -17,7 +17,8 @@ public interface Chord {
 		DOMINANT_SEVENTH("7", new int[] { -12, 0, 4, 7, 10 }), //
 		DOMINANT_NINTH("9", new int[] { -12, 0, 4, 7, 10, 14 }), //
 		DOMINANT_THIRTEENTH("13", new int[] { -12, 0, 4, 7, 10, 14, 21 }), //
-		LYDIAN_DOMINANT_SEVENTH("7#11", new int[] { -12, 0, 4, 7, 10, 14, 18, 21 }), //
+		LYDIAN_DOMINANT_SEVENTH("7#11", new int[] { -12, 0, 4, 7, 10, 14, 18,
+				21 }), //
 		// Altered
 		DOMINANT_FLAT_9("7b9", new int[] { -12, 0, 4, 7, 10, 13 }), //
 		DOMINANT_SHARP_9("7#9", new int[] { -12, 0, 4, 7, 10, 15 }), //
@@ -47,7 +48,7 @@ public interface Chord {
 
 		Type(String name, int[] degrees) {
 			this.name = name;
-			this.halfStepsFromRoot = degrees;
+			halfStepsFromRoot = degrees;
 		}
 
 		@Override

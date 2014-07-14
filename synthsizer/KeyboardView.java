@@ -1,12 +1,10 @@
 package synthsizer;
 
 import helpers.FileHelper;
-import helpers.PropertyChanger;
 
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Dimension;
-import java.awt.GridLayout;
 import java.awt.KeyEventDispatcher;
 import java.awt.KeyboardFocusManager;
 import java.awt.Point;
@@ -18,8 +16,6 @@ import java.awt.event.MouseListener;
 import java.beans.PropertyChangeListener;
 import java.beans.PropertyChangeSupport;
 import java.io.FileNotFoundException;
-import java.util.Observable;
-import java.util.Observer;
 
 import javax.swing.BorderFactory;
 import javax.swing.JButton;
@@ -30,6 +26,7 @@ import javax.swing.JLayeredPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JSlider;
+import javax.swing.ScrollPaneConstants;
 import javax.swing.SwingUtilities;
 import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
@@ -38,96 +35,343 @@ import synthsizer.Chord.Type;
 import synthsizer.Note.Root;
 
 public class KeyboardView implements View {
-	private PropertyChangeSupport changes;
-	private JFrame f;
-	private KeyboardScrollPane sp;
-	private ControlPanel cp;
-	private Pedals pedals;
+	private class ControlPanel extends JPanel implements ActionListener {
+		private static final long serialVersionUID = 1951726034463130455L;
+		// Property changes
+		private final PropertyChangeSupport changes;
+		// selection lists
+		private final JComboBox<Instrument> instruments;
+		private final JComboBox<Note.Root> roots;
+		private final JComboBox<Chord.Type> chordTypes;
+		// confirmation buttons
+		public JButton changeChord, changeInstrument, changeRoot, stop;
+		// currently selected
+		private Chord.Type selectedChordType;
+		private Instrument selectedInstrument;
+		private Note.Root selectedRoot;
 
-	public KeyboardView() throws FileNotFoundException {
-		// Property change support
-		this.changes = new PropertyChangeSupport(this);
-		// JFrame
-		this.f = new JFrame("Keyboard");
-		f.setLayout(new BorderLayout());
-		// add components
-		f.add(sp = new KeyboardScrollPane(changes), BorderLayout.CENTER);
-		f.add(cp = new ControlPanel(changes), BorderLayout.NORTH);
-		f.add(pedals = new Pedals(changes), BorderLayout.SOUTH);
-		// finalize
-		f.pack();
-		f.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-		// Keyboard handling
-		KeyboardFocusManager manager = KeyboardFocusManager
-				.getCurrentKeyboardFocusManager();
-		manager.addKeyEventDispatcher(new KeyboardDispatcher());
-		// done
-		f.setVisible(true);
-	}
-
-	@Override
-	public void addPropertyChangeListener(PropertyChangeListener l) {
-		changes.addPropertyChangeListener(l);
-	}
-
-	@Override
-	public void removePropertyChangeListener(PropertyChangeListener l) {
-		changes.removePropertyChangeListener(l);
-	}
-
-	@Override
-	public void pressKey(int i) {
-		sp.getKeyboardPanel().start(i);
-	}
-
-	@Override
-	public void releaseKey(int i) {
-		sp.getKeyboardPanel().stop(i);
-	}
-
-	@Override
-	public void setSustainEnabled(boolean isSustainEnabled) {
-		if (isSustainEnabled)
-			pedals.sustain.setText("release");
-		else
-			pedals.sustain.setText("sustain");
-		sp.getKeyboardPanel().setSustainEnabled(isSustainEnabled);
-		// property change fires from KeyboardPanel method.
-	}
-
-	@Override
-	public void setSostenutoState(Keyboard.SostenutoState sostenutoState) {
-		switch (sostenutoState) {
-		case ONE:
-			pedals.sostenuto.setText("sostenuto");
-			pedals.sostenuto.setActionCommand("sostenuto1");
-			break;
-		case TWO:
-			pedals.sostenuto.setText("pick notes");
-			pedals.sostenuto.setActionCommand("sostenuto2");
-			break;
-		case THREE:
-			pedals.sostenuto.setText("  release  ");
-			pedals.sostenuto.setActionCommand("sostenuto3");
-			break;
+		public ControlPanel(PropertyChangeSupport changes)
+				throws FileNotFoundException {
+			super();
+			this.changes = changes;
+			// mode selection
+			add(new JLabel("Choose a chord"));
+			chordTypes = new JComboBox<Chord.Type>(Chord.Type.values());
+			add(chordTypes);
+			selectedChordType = chordTypes.getItemAt(0);
+			changeChord = new JButton("change chord");
+			changeChord.setActionCommand("changeChord");
+			changeChord.addActionListener(this);
+			add(changeChord);
+			// instrument selection
+			add(new JLabel("Choose an instrument"));
+			instruments = new JComboBox<Instrument>(FileHelper.getInstruments());
+			add(instruments);
+			selectedInstrument = instruments.getItemAt(0);
+			changeInstrument = new JButton("change instrument");
+			changeInstrument.setActionCommand("changeInstrument");
+			changeInstrument.addActionListener(this);
+			add(changeInstrument);
+			// key selection
+			add(new JLabel("Choose a root:"));
+			roots = new JComboBox<Note.Root>(Note.Root.values());
+			add(roots);
+			selectedRoot = roots.getItemAt(0);
+			changeRoot = new JButton("change root");
+			changeRoot.setActionCommand("changeRoot");
+			changeRoot.addActionListener(this);
+			add(changeRoot);
+			// stop all
+			stop = new JButton("stop");
+			stop.setActionCommand("stop");
+			stop.addActionListener(this);
+			add(stop);
 		}
-		sp.getKeyboardPanel().setSostenutoState(sostenutoState);
-		// property change fires from KeyboardPanel method.
+
+		@Override
+		public void actionPerformed(ActionEvent e) {
+			switch (e.getActionCommand()) {
+			case "changeChord":
+				Chord.Type oldChordType = selectedChordType;
+				selectedChordType = (Chord.Type) chordTypes.getSelectedItem();
+				changes.firePropertyChange("chordType", oldChordType,
+						selectedChordType);
+			case "changeInstrument":
+				Instrument oldInstrument = selectedInstrument;
+				selectedInstrument = (Instrument) instruments.getSelectedItem();
+				changes.firePropertyChange("instrument", oldInstrument,
+						selectedInstrument);
+				break;
+			case "changeRoot":
+				Note.Root oldRoot = selectedRoot;
+				selectedRoot = (Note.Root) roots.getSelectedItem();
+				changes.firePropertyChange("root", oldRoot, selectedRoot);
+				break;
+			case "stop":
+				changes.firePropertyChange("stopAll", null, null);
+				break;
+			default:
+				break;
+			}
+		}
+
+		public void selectRoot(Root newValue) {
+			roots.setSelectedItem(newValue);
+			Note.Root oldRoot = selectedRoot;
+			selectedRoot = newValue;
+			changes.firePropertyChange("root", oldRoot, selectedRoot);
+		}
+
+		public void setChordType(Type newValue) {
+			Chord.Type oldChordType = selectedChordType;
+			selectedChordType = newValue;
+			chordTypes.setSelectedItem(newValue);
+			changes.firePropertyChange("chordType", oldChordType,
+					selectedChordType);
+		}
+
 	}
 
-	@Override
-	public String toString() {
-		return "Keyboard View";
-	}
+	private static class Key extends JButton implements MouseListener {
+		private static final long serialVersionUID = -607879188699121465L;
+		// for the mouse listener
+		private static Key lastPressed;
+		private static boolean wasPreviouslyClicked;
+		// Property changes
+		private final PropertyChangeSupport changes;
+		// Key properties
+		private final Note.Pitch p;
+		private boolean isPressed;
+		private boolean isSostenuto, isSustaining;
+		private final KeyboardPanel keyboard;
 
-	@Override
-	public void setRoot(Root newValue) {
-		cp.selectRoot(newValue);
-	}
+		public Key(Note.Pitch p, PropertyChangeSupport changes,
+				KeyboardPanel keyboard) {
+			super(p.toString());
+			// set up fields
+			this.p = p;
+			this.changes = changes;
+			this.keyboard = keyboard;
+			isPressed = false;
+			isSostenuto = false;
+			isSustaining = false;
+			// button-specific setup
+			setBorder(BorderFactory.createRaisedBevelBorder());
+			if (p.isAccidental()) {
+				setBackground(Color.BLACK);
+				setForeground(Color.WHITE);
+				setSize(30, 150);
+				setLocation(-15 + p.getLocationOnKeyboard() * 50, 0);
+			} else {
+				setBackground(Color.WHITE);
+				setSize(50, 200);
+				setLocation(p.getLocationOnKeyboard() * 50, 0);
+			}
+			setContentAreaFilled(false);
+			setOpaque(true);
+			setFocusable(false);
+			addMouseListener(this);
+		}
 
-	@Override
-	public void setChordType(Type newValue) {
-		cp.setChordType(newValue);
+		@Override
+		public void mouseClicked(MouseEvent e) {
+		}
+
+		@Override
+		public void mouseEntered(MouseEvent e) {
+			if (SwingUtilities.isLeftMouseButton(e) && wasPreviouslyClicked) {
+				boolean isSustainEnabled = keyboard.isSustainEnabled();
+				Keyboard.SostenutoState sostenutoState = keyboard
+						.getSostenutoState();
+				if (isSustainEnabled
+						&& sostenutoState.equals(Keyboard.SostenutoState.TWO)) {
+					if (!isPressed) {
+						setIsSustaining(true);
+						setIsSostenuto(true);
+						start();
+						changes.firePropertyChange("start", null, p);
+						lastPressed = this;
+					} else {
+						setIsSustaining(false);
+						setIsSostenuto(false);
+						stop();
+						changes.firePropertyChange("stop", p, null);
+					}
+				} else if (isSustainEnabled) {
+					if (!isPressed) {
+						setIsSustaining(true);
+						start();
+						changes.firePropertyChange("start", null, p);
+						lastPressed = this;
+					} else {
+						setIsSustaining(false);
+						if (!isSostenuto) {
+							stop();
+							changes.firePropertyChange("stop", p, null);
+						}
+					}
+				} else if (sostenutoState.equals(Keyboard.SostenutoState.TWO)) {
+					if (!isPressed) {
+						setIsSostenuto(true);
+						start();
+						changes.firePropertyChange("start", null, p);
+						lastPressed = this;
+					} else {
+						setIsSostenuto(false);
+						stop();
+						changes.firePropertyChange("stop", p, null);
+					}
+				} else {
+					if (!isPressed) {
+						start();
+						changes.firePropertyChange("start", null, p);
+						lastPressed = this;
+					} else if (isSostenuto) {
+						stop();
+						changes.firePropertyChange("stop", p, null);
+						start();
+						changes.firePropertyChange("start", null, p);
+					}
+				}
+			}
+		}
+
+		@Override
+		public void mouseExited(MouseEvent e) {
+			if (!isSustaining && !isSostenuto
+					&& SwingUtilities.isLeftMouseButton(e)
+					&& wasPreviouslyClicked) {
+				stop();
+				changes.firePropertyChange("stop", p, null);
+			}
+		}
+
+		@Override
+		public void mousePressed(MouseEvent e) {
+			boolean isSustainEnabled = keyboard.isSustainEnabled();
+			Keyboard.SostenutoState sostenutoState = keyboard
+					.getSostenutoState();
+			if (isSustainEnabled
+					&& sostenutoState.equals(Keyboard.SostenutoState.TWO)) {
+				if (!isPressed) {
+					setIsSustaining(true);
+					setIsSostenuto(true);
+					start();
+					changes.firePropertyChange("start", null, p);
+				} else {
+					setIsSustaining(false);
+					setIsSostenuto(false);
+					stop();
+					changes.firePropertyChange("stop", p, null);
+				}
+			} else if (isSustainEnabled) {
+				if (!isPressed) {
+					setIsSustaining(true);
+					start();
+					changes.firePropertyChange("start", null, p);
+				} else {
+					setIsSustaining(false);
+					if (!isSostenuto) {
+						stop();
+						changes.firePropertyChange("stop", p, null);
+					}
+				}
+			} else if (sostenutoState.equals(Keyboard.SostenutoState.TWO)) {
+				if (!isPressed) {
+					setIsSostenuto(true);
+					start();
+					changes.firePropertyChange("start", null, p);
+				} else {
+					setIsSostenuto(false);
+					stop();
+					changes.firePropertyChange("stop", p, null);
+				}
+			} else {
+				if (!isPressed) {
+					start();
+					changes.firePropertyChange("start", null, p);
+				} else if (isSostenuto) {
+					stop();
+					changes.firePropertyChange("stop", p, null);
+					try {
+						Thread.sleep(30);
+					} catch (InterruptedException e1) {
+
+					}
+					start();
+					changes.firePropertyChange("start", null, p);
+				}
+			}
+			lastPressed = this;
+			wasPreviouslyClicked = true;
+		}
+
+		@Override
+		public void mouseReleased(MouseEvent e) {
+			boolean isSustainEnabled = keyboard.isSustainEnabled();
+			Keyboard.SostenutoState sostenutoState = keyboard
+					.getSostenutoState();
+			if (this != lastPressed) {
+				if (!lastPressed.isSostenuto && !lastPressed.isSustaining) {
+					lastPressed.stop();
+					changes.firePropertyChange("stop", lastPressed.p, null);
+				}
+			} else if (isSustainEnabled) {
+
+			} else if (sostenutoState.equals(Keyboard.SostenutoState.TWO)) {
+
+			} else if (isSostenuto
+					&& sostenutoState.equals(Keyboard.SostenutoState.THREE)) {
+
+			} else {
+				stop();
+				changes.firePropertyChange("stop", p, null);
+			}
+			wasPreviouslyClicked = false;
+		}
+
+		public void setIsSostenuto(boolean isSostenuto) {
+			boolean old = this.isSostenuto;
+			this.isSostenuto = isSostenuto;
+			if (isPressed && !isSustaining && !isSostenuto) {
+				stop();
+			}
+			changes.firePropertyChange("isSostenuto", old, isSostenuto);
+		}
+
+		public void setIsSustaining(boolean isSustaining) {
+			boolean old = this.isSustaining;
+			this.isSustaining = isSustaining;
+			if (isPressed && !isSustaining && !isSostenuto) {
+				stop();
+			}
+			changes.firePropertyChange("isSustaining", old, isSustaining);
+		}
+
+		public void start() {
+			// PRE: isPressed == false
+			if (p.isAccidental()) {
+				setBackground(Color.DARK_GRAY);
+			} else {
+				setBackground(Color.LIGHT_GRAY);
+			}
+			isPressed = true;
+		}
+
+		public void stop() {
+			// PRE: isPressed == true
+			if (p.isAccidental()) {
+				setBackground(Color.BLACK);
+			} else {
+				setBackground(Color.WHITE);
+			}
+			isPressed = false;
+		}
+
+		@Override
+		public String toString() {
+			return "Key " + p.toString();
+		}
 	}
 
 	private class KeyboardDispatcher implements KeyEventDispatcher {
@@ -223,112 +467,97 @@ public class KeyboardView implements View {
 		}
 	}
 
-	private class ControlPanel extends JPanel implements ActionListener {
-		private static final long serialVersionUID = 1951726034463130455L;
+	private class KeyboardPanel extends JLayeredPane {
+		private static final long serialVersionUID = -1500503807487396563L;
 		// Property changes
-		private PropertyChangeSupport changes;
-		// selection lists
-		private JComboBox<Instrument> instruments;
-		private JComboBox<Note.Root> roots;
-		private JComboBox<Chord.Type> chordTypes;
-		// confirmation buttons
-		public JButton changeChord, changeInstrument, changeRoot, stop;
-		// currently selected
-		private Chord.Type selectedChordType;
-		private Instrument selectedInstrument;
-		private Note.Root selectedRoot;
+		private final PropertyChangeSupport changes;
+		// Key collection
+		private final Key[] keys;
+		// Keyboard states
+		private boolean isSustainEnabled;
+		private Keyboard.SostenutoState sostenutoState;
 
-		public ControlPanel(PropertyChangeSupport changes)
-				throws FileNotFoundException {
-			super();
+		public KeyboardPanel(PropertyChangeSupport changes) {
+			// super();
 			this.changes = changes;
-			// mode selection
-			add(new JLabel("Choose a chord"));
-			chordTypes = new JComboBox<Chord.Type>(Chord.Type.values());
-			add(chordTypes);
-			this.selectedChordType = chordTypes.getItemAt(0);
-			changeChord = new JButton("change chord");
-			changeChord.setActionCommand("changeChord");
-			changeChord.addActionListener(this);
-			add(changeChord);
-			// instrument selection
-			add(new JLabel("Choose an instrument"));
-			instruments = new JComboBox<Instrument>(FileHelper.getInstruments());
-			add(instruments);
-			this.selectedInstrument = instruments.getItemAt(0);
-			changeInstrument = new JButton("change instrument");
-			changeInstrument.setActionCommand("changeInstrument");
-			changeInstrument.addActionListener(this);
-			add(changeInstrument);
-			// key selection
-			add(new JLabel("Choose a root:"));
-			roots = new JComboBox<Note.Root>(Note.Root.values());
-			add(roots);
-			this.selectedRoot = roots.getItemAt(0);
-			changeRoot = new JButton("change root");
-			changeRoot.setActionCommand("changeRoot");
-			changeRoot.addActionListener(this);
-			add(changeRoot);
-			// stop all
-			stop = new JButton("stop");
-			stop.setActionCommand("stop");
-			stop.addActionListener(this);
-			add(stop);
-		}
-
-		public void setChordType(Type newValue) {
-			Chord.Type oldChordType = this.selectedChordType;
-			this.selectedChordType = newValue;
-			chordTypes.setSelectedItem(newValue);
-			changes.firePropertyChange("chordType", oldChordType,
-					selectedChordType);
-		}
-
-		public void selectRoot(Root newValue) {
-			roots.setSelectedItem(newValue);
-			Note.Root oldRoot = this.selectedRoot;
-			this.selectedRoot = newValue;
-			changes.firePropertyChange("root", oldRoot, selectedRoot);
-		}
-
-		@Override
-		public void actionPerformed(ActionEvent e) {
-			switch (e.getActionCommand()) {
-			case "changeChord":
-				Chord.Type oldChordType = selectedChordType;
-				selectedChordType = (Chord.Type) chordTypes.getSelectedItem();
-				changes.firePropertyChange("chordType", oldChordType,
-						selectedChordType);
-			case "changeInstrument":
-				Instrument oldInstrument = selectedInstrument;
-				selectedInstrument = (Instrument) instruments.getSelectedItem();
-				changes.firePropertyChange("instrument", oldInstrument,
-						selectedInstrument);
-				break;
-			case "changeRoot":
-				Note.Root oldRoot = selectedRoot;
-				this.selectedRoot = (Note.Root) roots.getSelectedItem();
-				changes.firePropertyChange("root", oldRoot, selectedRoot);
-				break;
-			case "stop":
-				changes.firePropertyChange("stopAll", null, null);
-				break;
-			default:
-				break;
+			keys = new Key[Note.Pitch.values().length];
+			isSustainEnabled = false;
+			sostenutoState = Keyboard.SostenutoState.ONE;
+			Note.Pitch[] notes = Note.Pitch.values();
+			for (int i = 0; i < notes.length; i++) {
+				keys[i] = new Key(notes[i], changes, this);
+				if (notes[i].isAccidental()) {
+					add(keys[i], 1, -1);
+				} else {
+					add(keys[i], 0, -1);
+				}
 			}
 		}
 
+		@Override
+		public Dimension getPreferredSize() {
+			return new Dimension(50 * 63, 200);
+		}
+
+		public Keyboard.SostenutoState getSostenutoState() {
+			return sostenutoState;
+		}
+
+		public boolean isSustainEnabled() {
+			return isSustainEnabled;
+		}
+
+		public void setSostenutoState(Keyboard.SostenutoState sostenutoState) {
+			Keyboard.SostenutoState old = this.sostenutoState;
+			this.sostenutoState = sostenutoState;
+			if (sostenutoState.equals(Keyboard.SostenutoState.ONE)) {
+				if (isSustainEnabled) {
+					for (Key k : keys) {
+						k.setIsSustaining(true);
+					}
+				}
+				for (Key k : keys) {
+					k.setIsSostenuto(false);
+				}
+			}
+			changes.firePropertyChange("sostenutoState", old, sostenutoState);
+		}
+
+		public void setSustainEnabled(boolean isSustainEnabled) {
+			boolean old = this.isSustainEnabled;
+			this.isSustainEnabled = isSustainEnabled;
+			if (!isSustainEnabled) {
+				for (Key k : keys) {
+					k.setIsSustaining(false);
+				}
+			}
+			changes.firePropertyChange("isSustainEnabled", old,
+					isSustainEnabled);
+		}
+
+		public void start(int i) {
+			keys[i].start();
+		}
+
+		public void stop(int i) {
+			keys[i].stop();
+		}
+
+		@Override
+		public String toString() {
+			return "KeyboardPanel";
+		}
 	}
 
 	private class KeyboardScrollPane extends JScrollPane {
 
 		private static final long serialVersionUID = 2594826271989475281L;
-		private KeyboardPanel keyboardPanel;
+		private final KeyboardPanel keyboardPanel;
 
 		public KeyboardScrollPane(PropertyChangeSupport changes) {
 			super(new KeyboardPanel(changes),
-					JScrollPane.VERTICAL_SCROLLBAR_NEVER,
-					JScrollPane.HORIZONTAL_SCROLLBAR_ALWAYS);
+					ScrollPaneConstants.VERTICAL_SCROLLBAR_NEVER,
+					ScrollPaneConstants.HORIZONTAL_SCROLLBAR_ALWAYS);
 			keyboardPanel = (KeyboardPanel) super.getViewport().getView();
 			super.getViewport().setViewPosition(new Point(1000, 0));
 			super.setWheelScrollingEnabled(true);
@@ -345,89 +574,13 @@ public class KeyboardView implements View {
 		}
 	}
 
-	private class KeyboardPanel extends JLayeredPane {
-		private static final long serialVersionUID = -1500503807487396563L;
-		// Property changes
-		private PropertyChangeSupport changes;
-		// Key collection
-		private Key[] keys;
-		// Keyboard states
-		private boolean isSustainEnabled;
-		private Keyboard.SostenutoState sostenutoState;
-
-		public KeyboardPanel(PropertyChangeSupport changes) {
-			// super();
-			this.changes = changes;
-			this.keys = new Key[Note.Pitch.values().length];
-			this.isSustainEnabled = false;
-			this.sostenutoState = Keyboard.SostenutoState.ONE;
-			Note.Pitch[] notes = Note.Pitch.values();
-			for (int i = 0; i < notes.length; i++) {
-				keys[i] = new Key(notes[i], changes, this);
-				if (notes[i].isAccidental())
-					add(keys[i], 1, -1);
-				else
-					add(keys[i], 0, -1);
-			}
-		}
-
-		public void setSustainEnabled(boolean isSustainEnabled) {
-			boolean old = this.isSustainEnabled;
-			this.isSustainEnabled = isSustainEnabled;
-			if (!isSustainEnabled)
-				for (Key k : keys)
-					k.setIsSustaining(false);
-			changes.firePropertyChange("isSustainEnabled", old,
-					isSustainEnabled);
-		}
-
-		public boolean isSustainEnabled() {
-			return isSustainEnabled;
-		}
-
-		public void setSostenutoState(Keyboard.SostenutoState sostenutoState) {
-			Keyboard.SostenutoState old = this.sostenutoState;
-			this.sostenutoState = sostenutoState;
-			if (sostenutoState.equals(Keyboard.SostenutoState.ONE)) {
-				if (isSustainEnabled)
-					for (Key k : keys)
-						k.setIsSustaining(true);
-				for (Key k : keys)
-					k.setIsSostenuto(false);
-			}
-			changes.firePropertyChange("sostenutoState", old, sostenutoState);
-		}
-
-		public Keyboard.SostenutoState getSostenutoState() {
-			return sostenutoState;
-		}
-
-		public void start(int i) {
-			keys[i].start();
-		}
-
-		public void stop(int i) {
-			keys[i].stop();
-		}
-
-		@Override
-		public Dimension getPreferredSize() {
-			return new Dimension(50 * 63, 200);
-		}
-
-		@Override
-		public String toString() {
-			return "KeyboardPanel";
-		}
-	}
-
 	private class Pedals extends JPanel implements ActionListener,
 			ChangeListener {
 		private static final long serialVersionUID = -913207215974354521L;
 		// Property changes
-		private PropertyChangeSupport changes;
+		private final PropertyChangeSupport changes;
 		// components
-		private JSlider gain;
+		private final JSlider gain;
 		public JButton sostenuto, sustain;
 		// pedal states
 		private float selectedGain;
@@ -483,254 +636,111 @@ public class KeyboardView implements View {
 
 		@Override
 		public void stateChanged(ChangeEvent e) {
-			if (e.getSource().equals(gain))
+			if (e.getSource().equals(gain)) {
 				if (!gain.getValueIsAdjusting()) {
 					float oldGain = selectedGain;
-					this.selectedGain = (float) gain.getValue();
+					selectedGain = gain.getValue();
 					changes.firePropertyChange("gain", oldGain, selectedGain);
 				}
+			}
 		}
 	}
 
-	private static class Key extends JButton implements MouseListener {
-		private static final long serialVersionUID = -607879188699121465L;
-		// for the mouse listener
-		private static Key lastPressed;
-		private static boolean wasPreviouslyClicked;
-		// Property changes
-		private PropertyChangeSupport changes;
-		// Key properties
-		private Note.Pitch p;
-		private boolean isPressed;
-		private boolean isSostenuto, isSustaining;
-		private KeyboardPanel keyboard;
+	private final PropertyChangeSupport changes;
 
-		public Key(Note.Pitch p, PropertyChangeSupport changes,
-				KeyboardPanel keyboard) {
-			super(p.toString());
-			// set up fields
-			this.p = p;
-			this.changes = changes;
-			this.keyboard = keyboard;
-			this.isPressed = false;
-			this.isSostenuto = false;
-			this.isSustaining = false;
-			// button-specific setup
-			this.setBorder(BorderFactory.createRaisedBevelBorder());
-			if (p.isAccidental()) {
-				setBackground(Color.BLACK);
-				setForeground(Color.WHITE);
-				setSize(30, 150);
-				setLocation(-15 + p.getLocationOnKeyboard() * 50, 0);
-			} else {
-				setBackground(Color.WHITE);
-				setSize(50, 200);
-				setLocation(p.getLocationOnKeyboard() * 50, 0);
-			}
-			this.setContentAreaFilled(false);
-			this.setOpaque(true);
-			this.setFocusable(false);
-			addMouseListener(this);
+	private final JFrame f;
+
+	private KeyboardScrollPane sp;
+
+	private ControlPanel cp;
+
+	private Pedals pedals;
+
+	public KeyboardView() throws FileNotFoundException {
+		// Property change support
+		changes = new PropertyChangeSupport(this);
+		// JFrame
+		f = new JFrame("Keyboard");
+		f.setLayout(new BorderLayout());
+		// add components
+		f.add(sp = new KeyboardScrollPane(changes), BorderLayout.CENTER);
+		f.add(cp = new ControlPanel(changes), BorderLayout.NORTH);
+		f.add(pedals = new Pedals(changes), BorderLayout.SOUTH);
+		// finalize
+		f.pack();
+		f.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+		// Keyboard handling
+		KeyboardFocusManager manager = KeyboardFocusManager
+				.getCurrentKeyboardFocusManager();
+		manager.addKeyEventDispatcher(new KeyboardDispatcher());
+		// done
+		f.setVisible(true);
+	}
+
+	@Override
+	public void addPropertyChangeListener(PropertyChangeListener l) {
+		changes.addPropertyChangeListener(l);
+	}
+
+	@Override
+	public void pressKey(int i) {
+		sp.getKeyboardPanel().start(i);
+	}
+
+	@Override
+	public void releaseKey(int i) {
+		sp.getKeyboardPanel().stop(i);
+	}
+
+	@Override
+	public void removePropertyChangeListener(PropertyChangeListener l) {
+		changes.removePropertyChangeListener(l);
+	}
+
+	@Override
+	public void setChordType(Type newValue) {
+		cp.setChordType(newValue);
+	}
+
+	@Override
+	public void setRoot(Root newValue) {
+		cp.selectRoot(newValue);
+	}
+
+	@Override
+	public void setSostenutoState(Keyboard.SostenutoState sostenutoState) {
+		switch (sostenutoState) {
+		case ONE:
+			pedals.sostenuto.setText("sostenuto");
+			pedals.sostenuto.setActionCommand("sostenuto1");
+			break;
+		case TWO:
+			pedals.sostenuto.setText("pick notes");
+			pedals.sostenuto.setActionCommand("sostenuto2");
+			break;
+		case THREE:
+			pedals.sostenuto.setText("  release  ");
+			pedals.sostenuto.setActionCommand("sostenuto3");
+			break;
 		}
+		sp.getKeyboardPanel().setSostenutoState(sostenutoState);
+		// property change fires from KeyboardPanel method.
+	}
 
-		public void setIsSustaining(boolean isSustaining) {
-			boolean old = this.isSustaining;
-			this.isSustaining = isSustaining;
-			if (isPressed && !isSustaining && !isSostenuto)
-				stop();
-			changes.firePropertyChange("isSustaining", old, isSustaining);
+	@Override
+	public void setSustainEnabled(boolean isSustainEnabled) {
+		if (isSustainEnabled) {
+			pedals.sustain.setText("release");
+		} else {
+			pedals.sustain.setText("sustain");
 		}
+		sp.getKeyboardPanel().setSustainEnabled(isSustainEnabled);
+		// property change fires from KeyboardPanel method.
+	}
 
-		public void setIsSostenuto(boolean isSostenuto) {
-			boolean old = this.isSostenuto;
-			this.isSostenuto = isSostenuto;
-			if (isPressed && !isSustaining && !isSostenuto)
-				stop();
-			changes.firePropertyChange("isSostenuto", old, isSostenuto);
-		}
-
-		public void start() {
-			// PRE: isPressed == false
-			if (p.isAccidental()) {
-				setBackground(Color.DARK_GRAY);
-			} else {
-				setBackground(Color.LIGHT_GRAY);
-			}
-			isPressed = true;
-		}
-
-		public void stop() {
-			// PRE: isPressed == true
-			if (p.isAccidental()) {
-				setBackground(Color.BLACK);
-			} else {
-				setBackground(Color.WHITE);
-			}
-			isPressed = false;
-		}
-
-		@Override
-		public void mouseClicked(MouseEvent e) {
-		}
-
-		@Override
-		public void mousePressed(MouseEvent e) {
-			boolean isSustainEnabled = keyboard.isSustainEnabled();
-			Keyboard.SostenutoState sostenutoState = keyboard
-					.getSostenutoState();
-			if (isSustainEnabled
-					&& sostenutoState.equals(Keyboard.SostenutoState.TWO)) {
-				if (!isPressed) {
-					setIsSustaining(true);
-					setIsSostenuto(true);
-					start();
-					changes.firePropertyChange("start", null, p);
-				} else {
-					setIsSustaining(false);
-					setIsSostenuto(false);
-					stop();
-					changes.firePropertyChange("stop", p, null);
-				}
-			} else if (isSustainEnabled) {
-				if (!isPressed) {
-					setIsSustaining(true);
-					start();
-					changes.firePropertyChange("start", null, p);
-				} else {
-					setIsSustaining(false);
-					if (!isSostenuto) {
-						stop();
-						changes.firePropertyChange("stop", p, null);
-					}
-				}
-			} else if (sostenutoState.equals(Keyboard.SostenutoState.TWO)) {
-				if (!isPressed) {
-					setIsSostenuto(true);
-					start();
-					changes.firePropertyChange("start", null, p);
-				} else {
-					setIsSostenuto(false);
-					stop();
-					changes.firePropertyChange("stop", p, null);
-				}
-			} else {
-				if (!isPressed) {
-					start();
-					changes.firePropertyChange("start", null, p);
-				} else if (isSostenuto) {
-					stop();
-					changes.firePropertyChange("stop", p, null);
-					try {
-						Thread.sleep(30);
-					} catch (InterruptedException e1) {
-
-					}
-					start();
-					changes.firePropertyChange("start", null, p);
-				}
-			}
-			lastPressed = this;
-			wasPreviouslyClicked = true;
-		}
-
-		@Override
-		public void mouseReleased(MouseEvent e) {
-			boolean isSustainEnabled = keyboard.isSustainEnabled();
-			Keyboard.SostenutoState sostenutoState = keyboard
-					.getSostenutoState();
-			if (this != lastPressed) {
-				if (!lastPressed.isSostenuto && !lastPressed.isSustaining) {
-					lastPressed.stop();
-					changes.firePropertyChange("stop", lastPressed.p, null);
-				}
-			} else if (isSustainEnabled) {
-
-			} else if (sostenutoState.equals(Keyboard.SostenutoState.TWO)) {
-
-			} else if (isSostenuto
-					&& sostenutoState.equals(Keyboard.SostenutoState.THREE)) {
-
-			} else {
-				stop();
-				changes.firePropertyChange("stop", p, null);
-			}
-			wasPreviouslyClicked = false;
-		}
-
-		@Override
-		public void mouseEntered(MouseEvent e) {
-			if (SwingUtilities.isLeftMouseButton(e) && wasPreviouslyClicked) {
-				boolean isSustainEnabled = keyboard.isSustainEnabled();
-				Keyboard.SostenutoState sostenutoState = keyboard
-						.getSostenutoState();
-				if (isSustainEnabled
-						&& sostenutoState.equals(Keyboard.SostenutoState.TWO)) {
-					if (!isPressed) {
-						setIsSustaining(true);
-						setIsSostenuto(true);
-						start();
-						changes.firePropertyChange("start", null, p);
-						lastPressed = this;
-					} else {
-						setIsSustaining(false);
-						setIsSostenuto(false);
-						stop();
-						changes.firePropertyChange("stop", p, null);
-					}
-				} else if (isSustainEnabled) {
-					if (!isPressed) {
-						setIsSustaining(true);
-						start();
-						changes.firePropertyChange("start", null, p);
-						lastPressed = this;
-					} else {
-						setIsSustaining(false);
-						if (!isSostenuto) {
-							stop();
-							changes.firePropertyChange("stop", p, null);
-						}
-					}
-				} else if (sostenutoState.equals(Keyboard.SostenutoState.TWO)) {
-					if (!isPressed) {
-						setIsSostenuto(true);
-						start();
-						changes.firePropertyChange("start", null, p);
-						lastPressed = this;
-					} else {
-						setIsSostenuto(false);
-						stop();
-						changes.firePropertyChange("stop", p, null);
-					}
-				} else {
-					if (!isPressed) {
-						start();
-						changes.firePropertyChange("start", null, p);
-						lastPressed = this;
-					} else if (isSostenuto) {
-						stop();
-						changes.firePropertyChange("stop", p, null);
-						start();
-						changes.firePropertyChange("start", null, p);
-					}
-				}
-			}
-		}
-
-		@Override
-		public void mouseExited(MouseEvent e) {
-			if (!isSustaining && !isSostenuto
-					&& SwingUtilities.isLeftMouseButton(e)
-					&& wasPreviouslyClicked) {
-				stop();
-				changes.firePropertyChange("stop", p, null);
-			}
-		}
-
-		@Override
-		public String toString() {
-			return "Key " + p.toString();
-		}
+	@Override
+	public String toString() {
+		return "Keyboard View";
 	}
 
 }
-

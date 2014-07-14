@@ -1,12 +1,12 @@
 package synthsizer;
 
 public interface Instrument {
-	String getName();
+	int[] getAmplitudes();
 
-	void setName(String name);
+	String getName();
 
 	void setAmplitudes(int[] amplitudes);
 
-	int[] getAmplitudes();
+	void setName(String name);
 
 }

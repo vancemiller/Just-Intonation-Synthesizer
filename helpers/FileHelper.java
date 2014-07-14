@@ -14,7 +14,7 @@ import synthsizer.Instrument;
 import synthsizer.InstrumentImpl;
 
 public class FileHelper {
-	private static String fileName = "instruments.txt";
+	private static String fileName = "./src/instruments.txt";
 
 	public static String getFileName() {
 		return fileName;
@@ -29,8 +29,9 @@ public class FileHelper {
 			String[] split = line.split(", ");
 			if (split[0].substring(0, 12).contains("instrument: ")) {
 				int[] amplitudes = new int[split.length - 1];
-				for (int i = 1; i < split.length - 1; i++)
+				for (int i = 1; i < split.length - 1; i++) {
 					amplitudes[i - 1] = Integer.parseInt(split[i]);
+				}
 				instruments.add(new InstrumentImpl(split[0].substring(12),
 						amplitudes));
 			}
@@ -39,19 +40,8 @@ public class FileHelper {
 		return instruments;
 	}
 
-	public static void writeNewInstrument(Instrument instrument)
-			throws IOException {
-		FileWriter fw = new FileWriter(new File(FileHelper.fileName), true);
-		fw.append("instrument: " + instrument.getName());
-		for (int i : instrument.getAmplitudes()) {
-			fw.append(", " + i);
-		}
-		fw.append('\n');
-		fw.close();
-	}
-
 	public static void remove(Instrument instrument) throws IOException {
-		File tempFile = new File("tmpfile.txt");
+		File tempFile = new File("./src/tmpfile.txt");
 		File file = new File(FileHelper.fileName);
 
 		BufferedReader reader = new BufferedReader(new FileReader(file));
@@ -87,5 +77,16 @@ public class FileHelper {
 		writer.close();
 		file.delete();
 		tempFile.renameTo(file);
+	}
+
+	public static void writeNewInstrument(Instrument instrument)
+			throws IOException {
+		FileWriter fw = new FileWriter(new File(FileHelper.fileName), true);
+		fw.append("instrument: " + instrument.getName());
+		for (int i : instrument.getAmplitudes()) {
+			fw.append(", " + i);
+		}
+		fw.append('\n');
+		fw.close();
 	}
 }
