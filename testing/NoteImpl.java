@@ -8,20 +8,18 @@ import javax.sound.sampled.SourceDataLine;
 public class NoteImpl implements Note {
 
 	private Pitch root;
-	private int octave;
 	private Interval intervalFromRoot;
 	private Player p;
 
-	public NoteImpl(Pitch root, int octave, Interval intervalFromRoot) {
+	public NoteImpl(Pitch root, Interval unison) {
 		this.root = root;
-		this.octave = octave;
-		this.intervalFromRoot = intervalFromRoot;
-		int freq = (int) (getFrequencyOfRoot() * intervalFromRoot.ratio);
+		this.intervalFromRoot = unison;
+		int freq = (int) (getFrequencyOfRoot() * unison.ratio);
 		int[] overtones = new int[Note.NUM_OVERTONES];
 		int[] amplitudes = new int[Note.NUM_OVERTONES];
 		for (int i = 0; i < Note.NUM_OVERTONES; i++) {
 			overtones[i] = freq * (i + 1);
-			amplitudes[i] = 127 - 32*i; // should read this from a file or
+			amplitudes[i] = 127 - 32 * i; // should read this from a file or
 											// something
 		}
 		this.p = new Player(overtones, amplitudes);
@@ -38,12 +36,23 @@ public class NoteImpl implements Note {
 				% Pitch.values().length];
 	}
 
-	public int getOctave() {
-		return octave;
-	}
-
 	public Interval getInterval() {
 		return intervalFromRoot;
+	}
+
+	@Override
+	public String toString() {
+		return getPitch().toString();
+	}
+
+	/** Setters */
+
+	protected void setRoot(Pitch root) {
+		this.root = root;
+	}
+
+	protected void setInterval(Interval interval) {
+		this.intervalFromRoot = interval;
 	}
 
 	/** Sound makers */
@@ -67,41 +76,48 @@ public class NoteImpl implements Note {
 	}
 
 	private int getHalfStepsFromA() {
-		return 12 * (octave - 4) + root.halfStepsFromA;
+		return root.ordinal() - Note.Pitch.A4.ordinal();
 	}
 
 	private static class Player {
 		public static final int SAMPLE_RATE = 64000; // Hz
 		public static final AudioFormat format = new AudioFormat(SAMPLE_RATE,
 				16, 1, true, true);
-
+		private boolean started;
 		private byte[][][] sineWaves;
 		private SourceDataLine[] lines;
 		private ThreadedPlayer[] threads;
 
 		public Player(int[] frequency, int[] amplitude) {
 			// Make the samples
-			sineWaves = new byte[Note.NUM_OVERTONES][3][SAMPLE_RATE];
+			this.sineWaves = new byte[Note.NUM_OVERTONES][3][SAMPLE_RATE];
 			for (int i = 0; i < Note.NUM_OVERTONES; i++)
 				makeSineWaves(i, frequency[i], amplitude[i]);
 			// get a line for each overtone to play
-			lines = new SourceDataLine[Note.NUM_OVERTONES];
+			this.lines = new SourceDataLine[Note.NUM_OVERTONES];
 			// get a thread to play each line
-			threads = new ThreadedPlayer[Note.NUM_OVERTONES];
+			this.threads = new ThreadedPlayer[Note.NUM_OVERTONES];
 			for (int i = 0; i < Note.NUM_OVERTONES; i++)
 				threads[i] = new ThreadedPlayer(lines[i], sineWaves[i]);
+			this.started = false;
 		}
 
 		public void start() {
+			if (started)
+				return;
+			started = true;
 			for (int i = 0; i < Note.NUM_OVERTONES; i++) {
 				new Thread(threads[i]).start();
 			}
 		}
 
 		public void stop() {
+			if (!started)
+				return;
 			for (ThreadedPlayer tp : threads) {
 				tp.stop();
 			}
+			started = false;
 		}
 
 		private void makeSineWaves(int i, int frequency, int amplitude) {
@@ -139,6 +155,7 @@ public class NoteImpl implements Note {
 					// TODO Auto-generated catch block
 					e1.printStackTrace();
 				}
+				isFinished = false;
 				l.start();
 				l.write(s[0], 0, s[0].length);
 				while (!isFinished) {

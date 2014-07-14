@@ -3,22 +3,11 @@ package testing;
 public interface Note {
 	public static final double TUNING = 440.0;
 	public static final Integer[] VALID_OCTAVES = { 0, 1, 2, 3, 4, 5, 6, 7, 8 };
-	public static final int NUM_OVERTONES = 6;
+	public static final int NUM_OVERTONES = 1;
 
 	public enum Pitch {
-		A(0, false), Bb(1, true), B(2, false), C(3, false), Db(4, true), D(5,
-				false), Eb(6, true), E(7, false), F(8, false), Gb(9, true), G(
-				10, false), Ab(11, true);
-		public final int halfStepsFromA;
-		public final boolean isAccidental;
-		public final static int totalPitches = 12;
-		public final static Pitch start = A;
-
-		Pitch(int halfStepsFromA, boolean isAccidental) {
-			this.halfStepsFromA = halfStepsFromA;
-			this.isAccidental = isAccidental;
-		}
-
+		C0, Db0, D0, Eb0, E0, F0, Gb0, G0, Ab0, A0, Bb0, B0, C1, Db1, D1, Eb1, E1, F1, Gb1, G1, Ab1, A1, Bb1, B1, C2, Db2, D2, Eb2, E2, F2, Gb2, G2, Ab2, A2, Bb2, B2, C3, Db3, D3, Eb3, E3, F3, Gb3, G3, Ab3, A3, Bb3, B3, C4, Db4, D4, Eb4, E4, F4, Gb4, G4, Ab4, A4, Bb4, B4, C5, Db5, D5, Eb5, E5, F5, Gb5, G5, Ab5, A5, Bb5, B5, C6, Db6, D6, Eb6, E6, F6, Gb6, G6, Ab6, A6, Bb6, B6, C7, Db7, D7, Eb7, E7, F7, Gb7, G7, Ab7, A7, Bb7, B7, C8, Db8, D8, Eb8, E8, F8, Gb8, G8, Ab8, A8, Bb8, B8;
+		
 		public Pitch next() {
 			return values()[(ordinal() + 1) % values().length];
 		}
@@ -26,22 +15,22 @@ public interface Note {
 		public Pitch previous() {
 			return values()[Math.abs((ordinal() - 1) % values().length)];
 		}
+
+		public boolean isAccidental() {
+			return this.toString().contains("b");
+		}
+
 	}
 
 	public enum Interval {
-		UNISON(1.0, 0, "Unison"), SEMITONE(16.0 / 15.0, 1, "Semitone"), MINOR_TONE(
-				10.0 / 9.0, 1, "Minor tone"), MAJOR_TONE(9.0 / 8.0, 2,
-				"Major tone"), MINOR_THIRD(6.0 / 5.0, 3, "Minor third"), MAJOR_THIRD(
-				5.0 / 4.0, 4, "Major third"), PERFECT_FOURTH(4.0 / 3.0, 5,
-				"Perfect fourth"), AUGMENTED_FOURTH(45.0 / 32.0, 6,
-				"Augmented fourth"), DIMINISHED_FIFTH(64.0 / 45.0, 6,
-				"Diminished fifth"), PERFECT_FIFTH(3.0 / 2.0, 7,
+		UNISON(1.0, 0, "Unison"), MINOR_SECOND(25.0 / 24.0, 1, "Minor second"), MAJOR_SECOND(
+				9.0 / 8.0, 2, "Major second"), MINOR_THIRD(6.0 / 5.0, 3,
+				"Minor third"), MAJOR_THIRD(5.0 / 4.0, 4, "Major third"), PERFECT_FOURTH(
+				4.0 / 3.0, 5, "Perfect fourth"), DIMINISHED_FIFTH(45.0 / 32.0,
+				6, "Diminished fifth"), PERFECT_FIFTH(3.0 / 2.0, 7,
 				"Perfect fifth"), MINOR_SIXTH(8.0 / 5.0, 8, "Minor sixth"), MAJOR_SIXTH(
-				5.0 / 3.0, 9, "Major sixth"), HARMONIC_MINOR_SEVENTH(7.0 / 4.0,
-				10, "Harmonic minor seventh"), GRAVE_MINOR_SEVENTH(16.0 / 9.0,
-				10, "Grave minor seventh"), MINOR_SEVENTH(9.0 / 5.0, 10,
-				"Minor seventh"), MAJOR_SEVENTH(15.0 / 8.0, 11, "Major seventh"), OCTAVE(
-				2.0, 12, "Octave");
+				5.0 / 3.0, 9, "Major sixth"), MINOR_SEVENTH(9.0 / 5.0, 10,
+				"Minor seventh"), MAJOR_SEVENTH(15.0 / 8.0, 11, "Major seventh");
 
 		public final double ratio;
 		public final int halfStepsFromRoot;
@@ -57,14 +46,21 @@ public interface Note {
 			return values()[ordinal() + 1 % values().length];
 		}
 
+		public static Interval getInterval(int halfSteps) {
+
+			return null;
+		}
+
 		@Override
 		public String toString() {
 			return longName;
 		}
 	}
 
+	public Pitch getPitch();
+	
 	public void start();
-	
+
 	public void stop();
-	
+
 }
