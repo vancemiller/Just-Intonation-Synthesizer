@@ -1,179 +1,301 @@
 package testing;
 
+import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Dimension;
-import java.awt.Graphics;
-import java.awt.Point;
+import java.awt.FlowLayout;
+import java.awt.GridBagConstraints;
+import java.awt.GridBagLayout;
+import java.awt.GridLayout;
+import java.awt.Insets;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
-import java.util.Iterator;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Observable;
+import java.util.Observer;
 
+import javax.swing.BorderFactory;
+import javax.swing.Box;
+import javax.swing.BoxLayout;
+import javax.swing.JButton;
+import javax.swing.JComboBox;
+import javax.swing.JDialog;
 import javax.swing.JFrame;
+import javax.swing.JLabel;
+import javax.swing.JOptionPane;
 import javax.swing.JPanel;
+import javax.swing.JPopupMenu;
+import javax.swing.JScrollPane;
+import javax.swing.JTextField;
+import javax.swing.SwingUtilities;
 
-import testing.Note.Pitch;
-
-public class View {
+public class View extends Observable implements ViewObserver {
 	JFrame f;
-	KeyboardPanel k;
+	NoteStack s;
 
 	public View() {
 		this.f = new JFrame("Just Intonation");
 		init();
-		f.setMinimumSize(new Dimension(600, 270));
-		f.setMaximumSize(new Dimension(600, 270));
+
 		f.pack();
 		f.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 		f.setVisible(true);
 	}
 
 	private void init() {
-		// JScrollPane sp = new JScrollPane(k = new KeyboardPanel(),
-		// JScrollPane.VERTICAL_SCROLLBAR_NEVER,
-		// JScrollPane.HORIZONTAL_SCROLLBAR_ALWAYS);
-		// f.add(sp);
-		f.setBackground(Color.RED);
-		f.add(new DrawableKey(Note.Pitch.A, 10, 0));
-		f.add(new DrawableKey(Note.Pitch.Bb, 30, 0));
-		// f.add(new DrawableKey(Note.Pitch.C, 00, 0));
-
+		f.setLayout(new FlowLayout(FlowLayout.LEFT, 5, 5));
+		f.add(new ControlPanel(this));
+		f.add(s = new NoteStack(this));
 	}
 
-	public void pressKey(int keyNumber) {
-		k.pressKey(keyNumber);
-	}
-
-	public void releaseKey(int keyNumber) {
-		k.releaseKey(keyNumber);
+	@Override
+	public void update(JPanel p, Event e) {
+		setChanged();
+		e.setNoteStack(s);
+		notifyObservers(e);
 	}
 }
 
-class KeyboardPanel extends JPanel implements MouseListener {
+class NoteStack extends JPanel implements ViewObservable {
 
-	private static final long serialVersionUID = -7261532115653344378L;
-	private final int numNotes;
-	private final Keyboard k;
+	private static final long serialVersionUID = 346897567898468463L;
+	private List<NoteBox> notes;
+	private JPanel p;
+	private ViewObserver v;
 
-	KeyboardPanel() {
-		this(88);
-	}
-
-	KeyboardPanel(int numNotes) {
+	public NoteStack(ViewObserver o) {
 		super();
-		this.numNotes = numNotes;
-		this.k = new Keyboard(Pitch.A, numNotes);
-		this.setBackground(Color.white);
-		this.addMouseListener(this);
+		this.v = o;
+
+		setBorder(BorderFactory.createTitledBorder("NoteStack"));
+		setLayout(new BorderLayout());
+
+		notes = new LinkedList<NoteBox>();
+
+		p = new JPanel();
+		p.setLayout(new BoxLayout(p, BoxLayout.PAGE_AXIS));
+		add(new JScrollPane(p), BorderLayout.CENTER);
 	}
 
 	@Override
 	public Dimension getPreferredSize() {
-		return new Dimension(k.get(numNotes).getX() + 50,
-				DrawableKey.WHITE_KEY_HEIGHT);
+		return new Dimension(120, 300);
 	}
 
-	@Override
-	public Dimension getMinimumSize() {
-		return getPreferredSize();
-	}
-
-	@Override
-	public Dimension getMaximumSize() {
-		return getPreferredSize();
-	}
-
-	@Override
-	public void paintComponent(Graphics g) {
-		super.paintComponent(g);
-		DrawableKey dk = new DrawableKey(Pitch.C, 10, 10);
-		this.add(dk);
-
-		// for (Iterator<DrawableKey> iterator = k.iterator();
-		// iterator.hasNext();) {
-		// DrawableKey drawableKey = (DrawableKey) iterator.next();
-		// this.add(drawableKey);
-		// }
-	}
-
-	public void pressKey(int keyNumber) {
-		// PRE: keyNumber is less than numNotes
+	protected void addNote(Note n) {
+		notes.add(new NoteBox(n));
+		p.add(notes.get(notes.size() - 1));
+		revalidate();
 		repaint();
 	}
 
-	public void releaseKey(int keyNumber) {
-		// PRE: keyNumber is less than numNotes
-		this.revalidate();
-		this.repaint();
+	protected void removeLast() {
+		if (notes.size() == 0)
+			return;
+		p.remove(notes.get(notes.size() - 1));
+		notes.remove(notes.size() - 1);
+		revalidate();
+		repaint();
 	}
 
-	private int getKeyNumber(Point point) {
-		int previousSize = 0, nextSize = 0, keyNumber = 0;
-		for (Iterator<DrawableKey> iterator = k.iterator(); iterator.hasNext();) {
-			DrawableKey drawableKey = iterator.next();
-			switch (drawableKey.getShape()) {
-			case B:
-				nextSize += DrawableKey.BLACK_KEY_WIDTH;
-				break;
-			case F:
-				nextSize += DrawableKey.WHITE_KEY_WIDTH;
-				break;
-			case L:
-				nextSize += DrawableKey.WHITE_KEY_WIDTH
-						- DrawableKey.BLACK_KEY_WIDTH / 2;
-				break;
-			case R:
-				nextSize += DrawableKey.WHITE_KEY_WIDTH
-						- DrawableKey.BLACK_KEY_WIDTH / 2;
-				break;
-			case T:
-				nextSize += DrawableKey.WHITE_KEY_WIDTH
-						- DrawableKey.BLACK_KEY_WIDTH;
-				break;
-			default:
-				break;
-			}
-			if (previousSize < point.x && nextSize > point.x) {
-				if (point.y < DrawableKey.BLACK_KEY_HEIGHT
-						&& k.get(keyNumber).getShape() == DrawableKey.Shape.B)
-					return keyNumber;
-				else if (point.y > DrawableKey.BLACK_KEY_HEIGHT
-						&& k.get(keyNumber).getShape() == DrawableKey.Shape.B)
-					return keyNumber + 1;
-				return keyNumber;
-			}
+	private class NoteBox extends JPanel implements MouseListener {
+		private Note n;
 
-			keyNumber++;
-			previousSize = nextSize;
+		private static final long serialVersionUID = 393530037508215982L;
+
+		public NoteBox(Note n) {
+			super();
+			this.n = n;
+			setBorder(BorderFactory.createTitledBorder("Note"));
+			add(new JLabel(n.toString()));
+			addMouseListener(this);
 		}
-		return -1;
+
+		@Override
+		public Dimension getPreferredSize() {
+			return new Dimension(80, 50);
+		}
+
+		@Override
+		public Dimension getMinimumSize() {
+			return getPreferredSize();
+		}
+
+		@Override
+		public Dimension getMaximumSize() {
+			return getPreferredSize();
+		}
+
+		@Override
+		public void mouseClicked(MouseEvent e) {
+			final Color bg = getBackground();
+			setBackground(bg.darker());
+
+			JPanel p = new JPanel();
+			JTextField[] overtones = new JTextField[Note.NUM_OVERTONES];
+			p.setBorder(BorderFactory.createTitledBorder(n.getRootPitch()
+					.toString()
+					+ n.getRootOctave()
+					+ " + "
+					+ n.getInterval().longName + " = " + n.toString()));
+			p.setLayout(new GridBagLayout());
+			GridBagConstraints gc = new GridBagConstraints();
+			gc.insets = new Insets(5, 5, 5, 5);
+			gc.anchor = GridBagConstraints.ABOVE_BASELINE_LEADING;
+			gc.gridwidth = 3;
+			gc.gridx = 0;
+			gc.gridy = 0;
+
+			for (int i = 0; i < overtones.length; i++) {
+				gc.gridx = 0;
+				gc.gridwidth = 1;
+				gc.gridy++;
+				p.add(new JLabel("Overtone " + i + ":"), gc);
+				gc.gridwidth = 2;
+				gc.gridx = 1;
+				p.add(overtones[i] = new JTextField(
+						n.getOvertoneVolume(i) + "", 5), gc);
+			}
+
+			if (JOptionPane.showConfirmDialog(this, p, "Note detail",
+					JOptionPane.OK_CANCEL_OPTION) == JOptionPane.OK_OPTION) {
+				double[] converted = new double[overtones.length];
+				for (int i = 0; i < overtones.length; i++) {
+					try {
+						converted[i] = Double.parseDouble(overtones[i]
+								.getText());
+					} catch (NumberFormatException x) {
+						converted[i] = 0.0;
+					}
+				}
+				notifyView(new OvertoneUpdateEvent(converted, n));
+			}
+			setBackground(bg);
+		}
+
+		@Override
+		public void mousePressed(MouseEvent e) {
+			// TODO Auto-generated method stub
+
+		}
+
+		@Override
+		public void mouseReleased(MouseEvent e) {
+			// TODO Auto-generated method stub
+
+		}
+
+		@Override
+		public void mouseEntered(MouseEvent e) {
+			// TODO Auto-generated method stub
+
+		}
+
+		@Override
+		public void mouseExited(MouseEvent e) {
+			// TODO Auto-generated method stub
+
+		}
 	}
 
 	@Override
-	public void mouseClicked(MouseEvent e) {
-		// TODO Auto-generated method stub
+	public void notifyView(Event e) {
+		v.update(this, e);
+	}
 
+}
+
+class ControlPanel extends JPanel implements ActionListener, ViewObservable {
+
+	private static final long serialVersionUID = -4807812618627195935L;
+	ViewObserver v;
+	JButton push, pop, play;
+	JComboBox<Note.Pitch> root;
+	JComboBox<Note.Interval> interval;
+	JComboBox<Integer> octave;
+	JTextField duration;
+
+	public ControlPanel(ViewObserver o) {
+		super();
+		v = o;
+
+		setLayout(new GridBagLayout());
+		setBorder(BorderFactory.createTitledBorder("ControlPanel"));
+		push = new JButton("Push");
+		pop = new JButton("Pop");
+		play = new JButton("Play");
+		root = new JComboBox<Note.Pitch>(Note.Pitch.values());
+		interval = new JComboBox<Note.Interval>(Note.Interval.values());
+		octave = new JComboBox<Integer>(Note.validOctaves);
+		duration = new JTextField("2000", 10);
+
+		push.setActionCommand("push");
+		pop.setActionCommand("pop");
+		play.setActionCommand("play");
+
+		push.addActionListener(this);
+		pop.addActionListener(this);
+		play.addActionListener(this);
+
+		GridBagConstraints gc = new GridBagConstraints();
+		gc.anchor = GridBagConstraints.WEST;
+		gc.fill = GridBagConstraints.HORIZONTAL;
+		gc.insets = new Insets(4, 4, 4, 4);
+		gc.gridx = 0;
+		gc.gridy = 0;
+		gc.gridwidth = 3;
+		add(root, gc);
+		gc.gridy++;
+		add(octave, gc);
+		gc.gridy++;
+		add(interval, gc);
+		gc.gridy++;
+		add(push, gc);
+		gc.gridy++;
+		add(pop, gc);
+		gc.gridy++;
+		gc.gridwidth = 2;
+		add(duration, gc);
+		gc.gridx = 2;
+		gc.gridwidth = 1;
+		add(play, gc);
 	}
 
 	@Override
-	public void mousePressed(MouseEvent e) {
-		System.out.println(e.getComponent());
+	public Dimension getPreferredSize() {
+		return new Dimension(200, 300);
 	}
 
 	@Override
-	public void mouseReleased(MouseEvent e) {
-		// TODO Auto-generated method stub
+	public void actionPerformed(ActionEvent e) {
+		switch (e.getActionCommand()) {
+		case "push":
+			notifyView(Event.newAddEvent(root.getSelectedIndex(),
+					interval.getSelectedIndex(), octave.getSelectedIndex()));
+			break;
+		case "pop":
+			notifyView(Event.newRemoveEvent());
+			break;
+		case "play":
+			try {
+				notifyView(Event.newPlayEvent(Integer.parseInt(duration
+						.getText())));
+			} catch (NumberFormatException x) {
+				duration.setText("");
+			} finally {
 
+			}
+			break;
+		default:
+			break;
+		}
 	}
 
 	@Override
-	public void mouseEntered(MouseEvent e) {
-		// TODO Auto-generated method stub
-
-	}
-
-	@Override
-	public void mouseExited(MouseEvent e) {
-		// TODO Auto-generated method stub
-
+	public void notifyView(Event e) {
+		v.update(this, e);
 	}
 }

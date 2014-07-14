@@ -18,6 +18,10 @@ public class Model {
 
 class Note {
 	public static final double tuning = 440.0;
+	public static final Integer[] validOctaves = { 0, 1, 2, 3, 4, 5, 6, 7, 8 };
+	public static final int NUM_OVERTONES = 6;
+	private final double[] overtoneVolume = { 1, 1.0 / 16.0, 1.0 / 32.0,
+			1.0 / 32.0, 1.0 / 64.0, 1.0 / 64.0 };
 
 	public enum Pitch {
 		A(0, false), Bb(1, true), B(2, false), C(3, false), Db(4, true), D(5,
@@ -43,27 +47,38 @@ class Note {
 	}
 
 	public enum Interval {
-		UNISON(1.0, 0), SEMITONE(16.0 / 15.0, 1), MINOR_TONE(10.0 / 9.0, 1), MAJOR_TONE(
-				9.0 / 8.0, 2), MINOR_THIRD(6.0 / 5.0, 3), MAJOR_THIRD(
-				5.0 / 4.0, 4), PERFECT_FOURTH(4.0 / 3.0, 5), AUGMENTED_FOURTH(
-				45.0 / 32.0, 6), DIMINISHED_FIFTH(64.0 / 45.0, 6), PERFECT_FIFTH(
-				3.0 / 2.0, 7), MINOR_SIXTH(8.0 / 5.0, 8), MAJOR_SIXTH(
-				5.0 / 3.0, 9), HARMONIC_MINOR_SEVENTH(7.0 / 4.0, 10), GRAVE_MINOR_SEVENTH(
-				16.0 / 9.0, 10), MINOR_SEVENTH(9.0 / 5.0, 10), MAJOR_SEVENTH(
-				15.0 / 8.0, 11), OCTAVE(2.0, 12);
+		UNISON(1.0, 0, "Unison"), SEMITONE(16.0 / 15.0, 1, "Semitone"), MINOR_TONE(
+				10.0 / 9.0, 1, "Minor tone"), MAJOR_TONE(9.0 / 8.0, 2,
+				"Major tone"), MINOR_THIRD(6.0 / 5.0, 3, "Minor third"), MAJOR_THIRD(
+				5.0 / 4.0, 4, "Major third"), PERFECT_FOURTH(4.0 / 3.0, 5,
+				"Perfect fourth"), AUGMENTED_FOURTH(45.0 / 32.0, 6,
+				"Augmented fourth"), DIMINISHED_FIFTH(64.0 / 45.0, 6,
+				"Diminished fifth"), PERFECT_FIFTH(3.0 / 2.0, 7,
+				"Perfect fifth"), MINOR_SIXTH(8.0 / 5.0, 8, "Minor sixth"), MAJOR_SIXTH(
+				5.0 / 3.0, 9, "Major sixth"), HARMONIC_MINOR_SEVENTH(7.0 / 4.0,
+				10, "Harmonic minor seventh"), GRAVE_MINOR_SEVENTH(16.0 / 9.0,
+				10, "Grave minor seventh"), MINOR_SEVENTH(9.0 / 5.0, 10,
+				"Minor seventh"), MAJOR_SEVENTH(15.0 / 8.0, 11, "Major seventh"), OCTAVE(
+				2.0, 12, "Octave");
 
 		public final double ratio;
 		public final int halfStepsFromRoot;
+		public final String longName;
 
-		Interval(double ratio, int halfStepsFromRoot) {
+		Interval(double ratio, int halfStepsFromRoot, String string) {
 			this.ratio = ratio;
 			this.halfStepsFromRoot = halfStepsFromRoot;
+			this.longName = string;
 		}
 
 		public Interval next() {
 			return values()[ordinal() + 1 % values().length];
 		}
 
+		@Override
+		public String toString() {
+			return longName;
+		}
 	}
 
 	private final Pitch root;
@@ -87,29 +102,16 @@ class Note {
 
 	public Runnable getRunnablePlay(int milliseconds, double volume) {
 		final Runnable harmonicsToPlay[] = new Runnable[6];
-		double intervalMultiplyer = intervalFromRoot.ratio;
-		harmonicsToPlay[0] = runnableFrequency(generateSineWavefreq(volume,
-				getFrequencyOfRoot() * intervalMultiplyer, milliseconds));
-		intervalMultiplyer *= Interval.OCTAVE.ratio;
-		harmonicsToPlay[1] = runnableFrequency(generateSineWavefreq(
-				volume * 1.0 / 8.0, getFrequencyOfRoot() * intervalMultiplyer,
-				milliseconds));
-		intervalMultiplyer *= Interval.PERFECT_FIFTH.ratio;
-		harmonicsToPlay[2] = runnableFrequency(generateSineWavefreq(
-				volume * 1.0 / 8.0, getFrequencyOfRoot() * intervalMultiplyer,
-				milliseconds));
-		intervalMultiplyer *= Interval.PERFECT_FOURTH.ratio;
-		harmonicsToPlay[3] = runnableFrequency(generateSineWavefreq(
-				volume * 1.0 / 16.0, getFrequencyOfRoot() * intervalMultiplyer,
-				milliseconds));
-		intervalMultiplyer *= Interval.MAJOR_THIRD.ratio;
-		harmonicsToPlay[4] = runnableFrequency(generateSineWavefreq(
-				volume * 1.0 / 16.0, getFrequencyOfRoot() * intervalMultiplyer,
-				milliseconds));
-		intervalMultiplyer *= Interval.MINOR_THIRD.ratio;
-		harmonicsToPlay[5] = runnableFrequency(generateSineWavefreq(
-				volume * 1.0 / 32.0, getFrequencyOfRoot() * intervalMultiplyer,
-				milliseconds));
+		Interval[] intervals = { intervalFromRoot, Interval.OCTAVE,
+				Interval.PERFECT_FIFTH, Interval.PERFECT_FOURTH,
+				Interval.MAJOR_THIRD, Interval.MINOR_THIRD };
+		double intervalMultiplyer = 1;
+		for (int i = 0; i < NUM_OVERTONES; i++) {
+			intervalMultiplyer *= intervals[i].ratio;
+			harmonicsToPlay[i] = runnableFrequency(generateSineWavefreq(volume
+					* getOvertoneVolume(i), getFrequencyOfRoot()
+					* intervalMultiplyer, milliseconds));
+		}
 		return new Runnable() {
 			Runnable someHarmonicsToPlay[] = harmonicsToPlay;
 
@@ -195,8 +197,21 @@ class Note {
 				% Pitch.values().length];
 	}
 
-	public int getOctave() {
+	public int getRootOctave() {
 		return octave;
+	}
+
+	public int getOctave() {
+		int o = octave;
+		Pitch p = root;
+		for (int i = 0; i < intervalFromRoot.halfStepsFromRoot; i++) {
+			p = p.next();
+			if (p == Note.Pitch.A) {
+				o++;
+			}
+		}
+
+		return o;
 	}
 
 	public Interval getInterval() {
@@ -206,6 +221,19 @@ class Note {
 	@Override
 	public Note clone() {
 		return new Note(root, octave, intervalFromRoot);
+	}
+
+	@Override
+	public String toString() {
+		return getPitch().toString() + getOctave();
+	}
+
+	public double getOvertoneVolume(int i) {
+		return overtoneVolume[i];
+	}
+
+	public void setOvertoneVolume(int index, double overtoneVolume) {
+		this.overtoneVolume[index] = overtoneVolume;
 	}
 }
 
@@ -234,8 +262,18 @@ class Chord {
 				: octave + interval.halfStepsFromRoot / 12, interval));
 	}
 
+	public void addNote(Note n) {
+		notes.add(n);
+	}
+
 	public void removeNote(int index) {
-		notes.remove(index);
+		if (notes.size() == 0)
+			return;
+		if (index == -1) {
+			notes.remove(notes.size() - 1);
+		} else {
+			notes.remove(index);
+		}
 	}
 
 	public void reset() {
@@ -257,6 +295,7 @@ class Chord {
 		for (Runnable r : notesToPlay)
 			new Thread(r).start();
 	}
+
 }
 
 class Triad extends Chord {
